@@ -1,25 +1,25 @@
 <!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1">
-<title>BTC Hack Miner (web prototype)</title><link rel=stylesheet href=style.css></head><body>
-<header><h1>₿ BTC Hack Miner <small>web prototype</small></h1><div id=clock></div>
-<div class=adv><button id=adv1>+1h</button><button id=adv8>+8h</button><button id=adv24>+1 day</button><button id=reset class=ghost>Reset</button></div></header>
+<title>BTC Hack Miner (web prototype)</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=stylesheet href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap"><link rel=stylesheet href=style.css><meta name=theme-color content="#06110c"><link rel=icon href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%82%BF%3C/text%3E%3C/svg%3E"></head><body>
+<header><div class=brand><h1>BTC Hack Miner</h1><p>Mine. Breach. Stack. · web prototype</p></div><div id=clock></div>
+<div class=adv><button id=adv1 class=btn>+1h</button><button id=adv8 class=btn>+8h</button><button id=adv24 class=btn>+1 day</button><button id=reset class="btn ghost">Reset</button></div></header>
 <p class=banner>Everything here is SIMULATED with mock numbers. No real bitcoin, mining, Lightning, ads or payments.</p>
 <main>
 <section><h2>Wallet</h2><div class=kv><span>Tier</span><b id=tier></b><span>Hot balance</span><b id=hot></b><span>Cold storage</span><b id=cold></b><span>Hack band</span><b id=band></b><span>Weekly prize pool</span><b id=pool></b></div></section>
 <section><h2>Mining</h2><div class=kv><span>Hashrate</span><b id=th></b><span>Est. output</span><b id=rate></b></div>
-<p id=ad></p><button id=watch>Watch ad → 24h ad miner</button>
-<h3>Buy permanent TH</h3><input id=qty type=number value=1 min=1 max=1000> <select id=chan><option value=web>Web card (+3%)</option><option value=mobile>Mobile card (+3% + store)</option><option value=sats>Pay with sats</option></select> <button id=buy>Buy (mock)</button><p id=quote class=muted></p></section>
+<p id=ad></p><button id=watch class=btn>Watch ad → 24h ad miner</button>
+<h3>Buy permanent TH</h3><input id=qty type=number value=1 min=1 max=1000> <select id=chan><option value=web>Web card (+3%)</option><option value=mobile>Mobile card (+3% + store)</option><option value=sats>Pay with sats</option></select> <button id=buy class=btn>Buy (mock)</button><p id=quote class=muted></p></section>
 <section class=wide><h2>Hack</h2><p class=muted>Paid tier: only targets in your hot-sat band. Fail = min(5% target, 25% you); success = min(10% target, 100% you). One successful rob per defender per UTC day.</p>
-<p id=fw></p><button id=fwup>Upgrade firewall</button> <button id=antiup>Upgrade anti-firewall</button> <button id=rand>Random target</button>
+<p id=fw></p><button id=fwup class=btn>Upgrade firewall</button> <button id=antiup class=btn>Upgrade anti-firewall</button> <button id=rand class=btn>Random target</button>
 <table><thead><tr><th>Player</th><th>Tier</th><th>Hot</th><th>Firewall</th><th></th><th></th></tr></thead><tbody id=targets></tbody></table>
-<p>Practice: <select id=pg></select> <button id=practice>Play</button></p></section>
-<section><h2>Cold storage & withdraw</h2><input id=camt type=number placeholder=sats> <button id=cold-in>Move to cold</button><br>
-Thaw level <select id=tlvl><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select> <button id=thaw-go>Start thaw</button> <button id=thaw-spend>Early spend</button> <button id=thaw-x>Cancel</button>
-<p id=thaw></p><h3>Withdraw (mock)</h3><input id=wamt type=number placeholder=sats> <button id=wd>Withdraw</button><p id=wq class=muted></p></section>
-<section><h2>Weekly race</h2><p class=muted>All 5 puzzles in order, one attempt, any fail ends the run. Week closes every 7 sim days. Top 5: 50/20/10/10/10.</p><button id=race-go>Enter weekly race</button><p id=entered></p><p id=race></p></section>
-<section class=wide><h2>Daily report (00:00 UTC close)</h2><button id=csv>Export CSV</button>
+<h3>Bench (practice, no sats)</h3><nav id=pg class=tabs></nav><label class=muted><input type=checkbox id=snd> Sound</label></section>
+<section><h2>Cold storage & withdraw</h2><input id=camt type=number placeholder=sats> <button id=cold-in class=btn>Move to cold</button><br>
+Thaw level <select id=tlvl><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select> <button id=thaw-go class=btn>Start thaw</button> <button id=thaw-spend class=btn>Early spend</button> <button id=thaw-x class=btn>Cancel</button>
+<p id=thaw></p><h3>Withdraw (mock)</h3><input id=wamt type=number placeholder=sats> <button id=wd class=btn>Withdraw</button><p id=wq class=muted></p></section>
+<section><h2>Weekly race</h2><p class=muted>All 5 puzzles in order, one attempt, any fail ends the run. Week closes every 7 sim days. Top 5: 50/20/10/10/10.</p><button id=race-go class=btn>Enter weekly race</button><p id=entered></p><p id=race></p></section>
+<section class=wide><h2>Daily report (00:00 UTC close)</h2><button id=csv class=btn>Export CSV</button>
 <table><thead><tr><th>Date</th><th>TH sold</th><th>Net payout</th><th>Player/Project/Owner</th><th>Pool rem.</th><th>Your credit</th><th>Ads rev→players/pool</th></tr></thead><tbody id=reports></tbody></table></section>
 <section class=wide><h2>Ledger</h2><table><tbody id=ledger></tbody></table></section>
 </main>
-<div id=modal><div class=box><button id=closeM class=ghost>✕</button><div id=stage></div></div></div>
+<div id=modal><div class=box><button id=closeM class="btn ghost">✕ Close</button><div id=stage></div></div></div>
 <div id=adbox><div>📺 Mock ad playing…</div></div><div id=toast></div>
 <script type=module src=src/main.js></script></body></html>

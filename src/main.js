@@ -1,7 +1,9 @@
 import { CONFIG as C } from './config.js';
 import * as R from './rules.js';
 import * as S from './sim.js';
-import { GAMES, runGame } from './minigames.js';
+import { GAMES, runGame as run0, TUNE } from './minigames.js';
+let cur = null; const runGame = (...a) => (cur = run0(...a));
+const card = (ok, head, lines) => `<div class="result ${ok ? 'pass' : 'fail'}"><p class=kicker>${ok ? 'Pass' : 'Fail'}</p><h3>${head}</h3>${lines.map(l => `<p>${l}</p>`).join('')}<button class=btn onclick="document.getElementById('closeM').click()">Close</button></div>`;
 let s = S.load(); const $ = q => document.querySelector(q);
 const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 3500); };
 const act = (fn, ok) => { const e = fn(); e ? toast(e) : ok && toast(ok); S.save(s); render(); };
@@ -27,18 +29,18 @@ function render() {
   const lr = s.lastRace; $('#race').innerHTML = lr ? `<b>Week ${lr.week}</b> pool ${lr.pool}: ` + Object.entries(lr.payouts).map(([id, v]) => `${id === 'me' ? 'YOU' : s.bots.find(b => b.id === id)?.name} +${v}`).join(', ') : 'No week closed yet.';
   $('#entered').textContent = s.weekRuns.length ? `Your run this week: ${s.weekRuns[0].stages}/5 stages, ${s.weekRuns[0].time}s, ${s.weekRuns[0].wrong} wrong` : 'Not entered this week (one attempt).';
 }
-function modal(show) { $('#modal').classList.toggle('on', show); }
+function modal(show) { document.activeElement?.blur(); $('#modal').classList.toggle('on', show); }
 function hack(bot) {
   const g = GAMES[Math.floor(Math.random() * GAMES.length)], secs = R.hackTimer(bot.firewall, s.me.anti); modal(true);
   runGame($('#stage'), g, secs, r => { const res = S.resolveHack(s, bot, r.pass); S.save(s); render();
-    $('#stage').innerHTML = `<h3>${r.pass ? 'PASS' : 'FAIL'}</h3><p>${res.msg}</p><p>${r.time}s, ${r.wrong} wrong inputs</p><button onclick="document.getElementById('modal').classList.remove('on')">Close</button>`; });
+    cur = null; $('#stage').innerHTML = card(r.pass, res.msg, [`Time used ${r.time}s · Wrong inputs ${r.wrong}`, r.reason === 'expired' ? 'Clock expired.' : '']); });
 }
 function race() {
   if (s.weekRuns.length) return toast('One weekly attempt only');
   let i = 0, total = 0, wrong = 0; modal(true);
   const next = () => runGame($('#stage'), GAMES[i], C.timer.seconds, r => { total += r.time; wrong += r.wrong; if (r.pass && ++i < 5) return next();
     s.weekRuns = [{ id: 'me', name: 'you', stages: i, time: +total.toFixed(1), wrong }]; S.save(s); render();
-    $('#stage').innerHTML = `<h3>Run over</h3><p>${i}/5 stages, ${total.toFixed(1)}s, ${wrong} wrong. Ranked when the week closes.</p><button onclick="document.getElementById('modal').classList.remove('on')">Close</button>`; });
+    cur = null; $('#stage').innerHTML = card(i === 5, `Run over · ${i}/5 stages`, [`${total.toFixed(1)}s total, ${wrong} wrong. Ranked when the week closes.`]); });
   next();
 }
 const num = id => Math.floor(+$(id).value || 0);
@@ -61,9 +63,10 @@ bind('#race-go', race);
 bind('#reset', () => { if (confirm('Reset the whole simulation?')) { s = S.newState(); S.save(s); render(); } });
 bind('#csv', () => { const rows = [['date', 'th_sold', 'net_payout', 'player', 'project', 'owner', 'pool', 'my_credit', 'ad_rev', 'ad_players', 'ad_pool'], ...s.reports.map(r => [r.date, r.thSold, r.net, r.player, r.project, r.owner, r.pool, r.mine, r.adRev, r.adPlayers, r.adPool])];
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([rows.map(r => r.join(',')).join('\n')], { type: 'text/csv' })); a.download = 'daily-report.csv'; a.click(); });
-bind('#practice', () => { modal(true); const g = GAMES[+$('#pg').value]; runGame($('#stage'), g, C.timer.seconds, r => { $('#stage').innerHTML = `<h3>${r.pass ? 'PASS' : 'FAIL'}</h3><p>${r.time}s, ${r.wrong} wrong (practice, no sats)</p><button onclick="document.getElementById('modal').classList.remove('on')">Close</button>`; }); });
-$('#pg').innerHTML = GAMES.map((g, i) => `<option value=${i}>${g.name}</option>`).join('');
-$('#closeM').onclick = () => { $('#stage').innerHTML = ''; modal(false); };
+const practice = i => { modal(true); runGame($('#stage'), GAMES[i], C.timer.seconds, r => { cur = null; $('#stage').innerHTML = card(r.pass, GAMES[i].name, [`Time used ${r.time}s · Wrong inputs ${r.wrong}`, 'Practice: no sats move.']); }); };
+$('#pg').innerHTML = ''; GAMES.forEach((g, i) => { const b = document.createElement('button'); b.className = 'tab'; b.innerHTML = `<span>${g.no}</span>${g.name}`; b.onclick = () => practice(i); $('#pg').append(b); });
+$('#snd').checked = TUNE.sound; $('#snd').onchange = e => TUNE.sound = e.target.checked;
+$('#closeM').onclick = () => { if (cur) { const c = cur; cur = null; c.abort(); } $('#stage').innerHTML = ''; modal(false); };
 function ev(type, data) { if (type === 'week') toast(`Week ${data.week} closed: prize pool ${data.pool} sats paid out`); }
 function maybeBot() { if (Math.random() < 0.5) { const m = S.botAttack(s); m && toast(m); } }
 $('#qty').oninput(); render();

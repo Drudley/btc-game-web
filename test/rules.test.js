@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import * as R from '../src/rules.js';
+assert.deepEqual(R.miningSplit(1000), { player: 800, project: 150, owner: 50, pool: 0 });
+const fc = R.failCost(1000, 100); assert.equal(fc.cost, 25); assert.equal(fc.defender, 5); assert.equal(fc.pool, 20);
+assert.equal(R.failCost(1000, 10000).cost, 50);
+assert.equal(R.steal(1000, 50), 50); assert.equal(R.steal(1000, 5000), 100);
+assert.equal(R.purchaseCheck(999, 1).ok, true); assert.equal(R.purchaseCheck(1000, 1).ok, false);
+const log = [{ def: 'b', day: '2026-10-12', success: true }];
+assert.equal(R.robAllowed(log, 'a', 'b', '2026-10-12'), false); assert.equal(R.robAllowed(log, 'a', 'b', '2026-10-13'), true);
+assert.equal(R.band(9), 1); assert.equal(R.band(10), 2); assert.equal(R.band(0), 0);
+assert.equal(R.lnFee(10000), 44); assert.equal(R.msatToPaid(1500), 2); assert.equal(R.msatToPaid(1499), 1);
+assert.equal(R.thawSpendable(10000, 15), 150);
+const d = R.distributePlayerShare(800, [{ id: 'a', th: [{ minutesActive: 1440 }] }, { id: 'b', th: [{ minutesActive: 720 }] }]);
+assert.equal(d.credits.a + d.credits.b + d.pool, 800);
+const w = R.weeklyPayout(1000, [{id:'a',stages:5,time:30,wrong:0},{id:'b',stages:5,time:30,wrong:0},{id:'c',stages:4,time:10,wrong:0}]);
+assert.equal(w.payouts.a, 250); assert.equal(w.payouts.c, 200);
+console.log('all rules tests passed');

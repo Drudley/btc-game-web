@@ -117,7 +117,7 @@ function circuit(el, g) {
 function capture(el, g) {
   const NEED = 6, LINE = 0.86; let packets = [], spawnIn = 0.3, caps = 0, leaks = 0; const gates = [false, false, false, false];
   const field = h('div', { class: 'field' }), cnt = h('span', { class: 'pill' });
-  const lanes = [0, 1, 2, 3].map(i => { const lane = h('div', { class: 'lane' }), gate = h('button', { class: 'lgate', onclick: () => toggle(i) }, `${i + 1}`); lane.append(gate); field.append(lane); return { lane, gate }; });
+  const lanes = [0, 1, 2, 3].map(i => { const lane = h('div', { class: 'lane', onclick: () => toggle(i) }), gate = h('div', { class: 'lgate btn' }, `${i + 1}`); lane.append(gate); field.append(lane); return { lane, gate }; });
   const toggle = i => { gates[i] = !gates[i]; lanes[i].gate.classList.toggle('open', gates[i]); g.beep('tap'); };
   const draw = () => cnt.textContent = `Captured ${caps}/${NEED} · Leaks ${leaks}`;
   g.loop(dt => { spawnIn -= dt; if (spawnIn <= 0) { const busy = new Set(packets.filter(p => p.y < 0.28).map(p => p.lane)); const free = [0, 1, 2, 3].filter(l => !busy.has(l));

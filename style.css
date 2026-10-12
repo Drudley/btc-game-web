@@ -51,3 +51,24 @@ td button{min-height:30px}.neg{color:var(--danger)}.pos{color:var(--primary)}
 #adbox{display:none;position:fixed;inset:0;background:#020805f0;color:var(--fg);font:700 24px var(--sans);align-items:center;justify-content:center;z-index:6}#adbox.on{display:flex}
 #toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--primary);padding:10px 14px;border-radius:.5rem;opacity:0;transition:.3s;pointer-events:none;z-index:7;max-width:90vw}#toast.on{opacity:1}
 @media(max-width:520px){.keypad{grid-template-columns:repeat(4,1fr)}.clock{font-size:24px}}
+/* Mobile hardening: nothing wider than the viewport */
+html,body{max-width:100%;overflow-x:hidden}
+main,section,.box,.scene,.scene-head>div,.kv>*{min-width:0}
+main{grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr))}
+p,td,b,.kv b,#thaw,#race,#entered,.note,.help,.brand p{overflow-wrap:anywhere}
+.tscroll{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.tscroll table{min-width:100%}.tscroll td,.tscroll th{white-space:nowrap}
+.tscroll td:last-child{white-space:normal;min-width:180px}
+input,select{max-width:100%}
+.lgate,.mcell,.cell-t,.key,.btn.big{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.field{touch-action:manipulation;user-select:none}
+@media(max-width:520px){
+ body{font-size:13px}header{padding:10px 12px;gap:8px}#clock{font-size:15px}.adv{display:flex;flex-wrap:wrap}.adv .btn{min-height:36px;padding:0 10px}
+ main{padding:8px;gap:8px}section{padding:10px}.kv{grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:4px 10px}
+ #modal{padding:0;align-items:stretch}.box{width:100%;max-height:100dvh;border-radius:0;padding:12px}
+ .scene-head{flex-wrap:wrap}.scene-head h3{font-size:17px}.stats{gap:12px}
+ .keypad{grid-template-columns:repeat(4,minmax(0,1fr))}.slot{height:48px;font-size:20px}
+ .board{max-width:100%}.field{height:min(300px,55dvh);gap:4px}.drop{width:20px;height:20px;margin-left:-10px}
+ .mgrid{max-width:min(300px,100%)}.tabs .tab{padding:0 10px}
+}
+.lane{cursor:pointer}.lgate{display:grid;place-items:center;pointer-events:none}
+@media(max-width:520px){.box{padding-top:54px}.scene-head{margin-top:0}}

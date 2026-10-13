@@ -2,7 +2,7 @@
 // The client never reports pass/fail; the server decides from inputs + server time.
 import { rng } from './rng.js';
 import { genBoard, flood } from './circuitgen.js';
-export const TUNE = { packetIntervalMs: 700, packetWindowMs: 180, packetSpeed: 0.55, captureDropSpeed: 0.28 };
+export const TUNE = { packetIntervalMs: 700, packetWindowMs: 180, packetSpeed: 0.55, captureDropSpeed: 0.45, captureSpawnMs: 250, captureSpawnSpreadMs: 250 }; // capture: ±15% speed; spawn every 250-500 ms (perfect play <= 13.4 s over 20k seeds)
 const GATE = 0.72, NEED_HITS = 5, CAP_NEED = 6, LINE = 0.86, LANES = 5;
 
 export const PUZZLES = {
@@ -18,7 +18,7 @@ export const PUZZLES = {
     },
   },
   memory: {
-    start(r) { const seqs = [3, 4, 5, 6].map(n => Array.from({ length: n }, () => Math.floor(r() * 4))); return { public: { round: 0, sequence: seqs[0], cells: 4, passAt: 6 }, secret: { seqs, round: 0, wrong: 0, r: null } }; },
+    start(r) { const seqs = [4, 5, 6].map(n => Array.from({ length: n }, () => Math.floor(r() * 4))); return { public: { round: 0, sequence: seqs[0], cells: 4, passAt: 6 }, secret: { seqs, round: 0, wrong: 0, r: null } }; },
     // submit taps for the current round; wrong -> new sequence same length (server generates)
     input(s, { taps }, r) {
       if (!Array.isArray(taps)) return { error: 'taps required' }; const want = s.seqs[s.round];
@@ -56,7 +56,7 @@ export const PUZZLES = {
     start(r) { const sched = []; let t = 300; const busyUntil = Array(LANES).fill(-1);
       while (t < 120000) { const free = [...Array(LANES).keys()].filter(l => busyUntil[l] <= t);
         if (free.length) { const lane = free[Math.floor(r() * free.length)], v = TUNE.captureDropSpeed * (0.85 + r() * 0.3); busyUntil[lane] = t + (0.28 + 0.08) / v * 1000;
-          sched.push({ t: Math.round(t), lane, v, hostile: r() < 0.55 }); t += 500 + r() * 600; } else t += 80; }
+          sched.push({ t: Math.round(t), lane, v, hostile: r() < 0.55 }); t += TUNE.captureSpawnMs + r() * TUNE.captureSpawnSpreadMs; } else t += 80; }
       return { public: { schedule: sched, lanes: LANES, line: LINE, need: CAP_NEED }, secret: { sched } }; },
     // toggles: [{t, lane}] ascending. Gate state at the moment each packet crosses LINE decides capture/leak.
     submit(s, { toggles }) { if (!Array.isArray(toggles) || toggles.length > 1000) return { error: 'toggles required' };

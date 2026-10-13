@@ -114,19 +114,20 @@ function capture(el, g) {
   g.key(e => { const i = +e.key - 1; if (i >= 0 && i < L) toggle(i); });
   el.append(h('p', { class: 'help' }, 'Open a lane gate (tap or keys 1–5) only for red hostiles. Catch six. Any green friendly through fails it. ', cnt), field); draw();
 }
-// 05 Memory: server sequences, one round per call
+// 05 Memory: server sequences (rounds 4,5,6), one round per call. Flash timing (client only): perfect play ≈ 12 s
+const MEM = { pause: 250, flash: 300, gap: 150 };
 function memory(el, g) {
   const cells = [0, 1, 2, 3].map(i => h('button', { class: `mcell m${i}`, onclick: () => press(i) }, h('span', {}, String(i + 1))));
   const prog = h('span', { class: 'pill' }); let seq = g.pub.sequence, taps = [], phase = 'pause', ms = 0, cursor = 0, lit = null;
   const reset = (s, reject) => { seq = s; taps = []; cursor = 0; phase = 'pause'; ms = reject ? -200 : 0; lit = null; };
   const draw = () => { cells.forEach((c, i) => c.classList.toggle('lit', lit === i)); prog.textContent = phase === 'input' ? `Repeat ${taps.length}/${seq.length}` : phase === 'wait' ? 'Checking…' : `Watch · length ${seq.length} of 6`; };
   g.loop(dt => { ms += dt * 1000;
-    if (phase === 'pause' && ms >= 320) { phase = 'flash'; ms = 0; cursor = 0; lit = seq[0]; }
-    else if (phase === 'flash' && ms >= 400) { lit = null; ms = 0; phase = cursor >= seq.length - 1 ? 'input' : 'gap'; }
-    else if (phase === 'gap' && ms >= 200) { cursor++; phase = 'flash'; ms = 0; lit = seq[cursor]; } draw(); });
+    if (phase === 'pause' && ms >= MEM.pause) { phase = 'flash'; ms = 0; cursor = 0; lit = seq[0]; }
+    else if (phase === 'flash' && ms >= MEM.flash) { lit = null; ms = 0; phase = cursor >= seq.length - 1 ? 'input' : 'gap'; }
+    else if (phase === 'gap' && ms >= MEM.gap) { cursor++; phase = 'flash'; ms = 0; lit = seq[cursor]; } draw(); });
   const send = async bad => { phase = 'wait'; const r = await g.input({ taps }); if (!r || r.done) return; if (r.ok === false) { g.wrong(); g.beep('bad'); } else g.beep('tap'); reset(r.sequence, bad); };
   const press = i => { if (phase !== 'input') return; cells[i].classList.add('tap'); setTimeout(() => cells[i].classList.remove('tap'), 120); taps.push(i);
     if (seq[taps.length - 1] !== i) return send(true); g.beep('tap'); if (taps.length >= seq.length) send(false); };
   g.key(e => { const i = { 1: 0, 2: 1, 3: 2, 4: 3 }[e.key]; i != null && press(i); });
-  el.append(h('p', { class: 'help' }, 'Repeat the flash. Grows by one each round, pass at six. Keys 1–4. ', prog), h('div', { class: 'mgrid' }, cells));
+  el.append(h('p', { class: 'help' }, 'Repeat the flash: 4, then 5, then 6. Keys 1–4. ', prog), h('div', { class: 'mgrid' }, cells));
 }

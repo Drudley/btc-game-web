@@ -15,3 +15,6 @@ assert.equal(d.credits.a + d.credits.b + d.pool, 800);
 const w = R.weeklyPayout(1000, [{id:'a',stages:5,time:30,wrong:0},{id:'b',stages:5,time:30,wrong:0},{id:'c',stages:4,time:10,wrong:0}]);
 assert.equal(w.payouts.a, 250); assert.equal(w.payouts.c, 200);
 console.log('all rules tests passed');
+assert.deepEqual([0,1,2,3,4,5].map(f => R.hackTimer(f, 0)), [60,55,50,45,40,35]);
+assert.equal(R.hackTimer(3, 2), 55); assert.equal(R.hackTimer(0, 5), 85); assert.equal(R.hackTimer(20, 0), 15);
+console.log('timer tests passed');

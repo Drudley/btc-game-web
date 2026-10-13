@@ -14,5 +14,5 @@ export const CONFIG = {
   thawHours: [24, 36, 48, 60, 72], // L1..L5
   weeklySplit: [50, 20, 10, 10, 10],
   mockDailyNetPayoutPerThSats: 60, // mock GoMining net payout per TH per day (no API)
-  timer: { seconds: 20, floor: 5, firewallDelta: -3, firewallMax: -15, missingAnti: 3 },
+  timer: { seconds: 60, floor: 15, perFirewall: 5, perAnti: 5 }, // hack time = 60 - 5*firewall + 5*anti, min 15s
 };

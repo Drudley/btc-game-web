@@ -55,10 +55,9 @@ export function thawSpendable(amount, hoursLeft, paid = true) {
   const v = amount * hoursLeft / 1000; return paid ? f(v) : f(v * 1000) / 1000;
 }
 export function hackTimer(firewall, anti) {
-  // timer = 20s + max(-15, -3*firewall) - 3 per firewall level not matched by anti; floor 5s
+  // seconds = max(floor, base - perFirewall*firewall + perAnti*anti)  -> 60 - 5*fw + 5*anti, min 15
   const t = C.timer;
-  const s = t.seconds + Math.max(t.firewallMax, t.firewallDelta * firewall) - t.missingAnti * Math.max(0, firewall - anti);
-  return Math.max(t.floor, s);
+  return Math.max(t.floor, t.seconds - t.perFirewall * firewall + t.perAnti * anti);
 }
 export function weeklyPayout(pool, ranked) {
   // ranked: [{id, stages, time, wrong}] ; ties split place share, next place not skipped

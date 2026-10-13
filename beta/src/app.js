@@ -61,9 +61,10 @@ function play(start, engine, ctx) { $('stage').innerHTML = ''; openModal(); runn
 
 $('shGo').onclick = hackLock(async () => { const L = lvl; await startServer({ mode: 'sathack', level: L, kit: curKit(), puzzle: FP }, { mode: 'sathack', title: `Sat hack · L${L}` }); refresh().catch(() => {}); });
 async function loadTargets() { const t = await call('/v1/targets'), tb = $('targets'); tb.innerHTML = '';
-  $('tgNote').textContent = me && me.hot <= 0 ? 'You have no hot sats yet. Win some free sat hacks first: you can only steal up to your own hot sats.' : t.length ? '' : 'No targets in your band right now.';
+  const minHot = me?.minAttackHot ?? 10, pvpLocked = !me || me.hot < minHot;
+  $('tgNote').textContent = pvpLocked ? `PvP locked: you need at least ${minHot} hot sats to attack (you have ${me?.hot ?? 0}), so a loss always costs something. Win free sat hacks first.` : t.length ? '' : 'No targets in your band right now.';
   for (const x of t) tb.append(h('tr', {}, h('td', {}, x.name, x.bot ? h('span', { class: 'tbot' }, 'bot') : null), h('td', {}, x.stealable + ' sats'), h('td', {}, 'L' + x.firewall), h('td', {}, hackSec(x.firewall, curKit()) < MIN() ? lockTxt(x.firewall) : hackSec(x.firewall, curKit()) + 's'),
-    h('td', {}, Object.assign(h('button', { class: 'btn hk', onclick: hackLock(async () => { const k = curKit(); await startServer({ mode: 'hack', target: x.id, kit: k, puzzle: FP }, { mode: 'hack', title: 'Hack ' + x.name + (k ? ` · L${k} kit` : '') }); }) }, hackSec(x.firewall, curKit()) < MIN() ? 'Locked' : 'Hack'), { disabled: hackSec(x.firewall, curKit()) < MIN() })))); }
+    h('td', {}, Object.assign(h('button', { class: 'btn hk', onclick: hackLock(async () => { const k = curKit(); await startServer({ mode: 'hack', target: x.id, kit: k, puzzle: FP }, { mode: 'hack', title: 'Hack ' + x.name + (k ? ` · L${k} kit` : '') }); }) }, pvpLocked ? 'Locked' : hackSec(x.firewall, curKit()) < MIN() ? 'Locked' : 'Hack'), { disabled: pvpLocked || hackSec(x.firewall, curKit()) < MIN() })))); }
 $('tgRefresh').onclick = safe(loadTargets);
 
 $('adGo').onclick = hackLock(async () => { const box = $('adbox'), bar = $('adBar'); box.classList.add('on'); bar.style.width = '0';

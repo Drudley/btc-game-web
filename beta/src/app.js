@@ -26,7 +26,7 @@ async function refresh() {
   $('uname').textContent = me.name; $('ptsTop').textContent = me.pts + ' pts'; $('hot').textContent = me.hot + ' sats'; $('freezing').textContent = me.freezing + ' sats'; $('frozen').textContent = me.frozen + ' sats';
   $('band').textContent = me.band; $('pts').textContent = me.pts; $('fwInfo').textContent = me.firewall ? `L${me.firewall} · ${fmtDur(me.firewallUntil - Date.now())} left` : 'L0 (none)';
   $('kitInfo').textContent = [1, 2, 3, 4, 5].filter(l => me.kits[l]).map(l => `L${l}×${me.kits[l]}`).join(' · ') || 'none';
-  $('coldLv').textContent = 'L' + me.cold; $('coldH').textContent = me.freezeHours + ' h'; $('shLeft').textContent = me.satHacksLeft + '/20'; $('adsLeft').textContent = me.adsLeft; $('adPts').textContent = me.adPoints;
+  $('coldLv').textContent = 'L' + me.cold; $('coldH').textContent = me.freezeHours + ' h'; $('shLeft').textContent = me.satHacksLeft + '/' + (me.satHacksPerDay ?? 10); $('adsLeft').textContent = me.adsLeft; $('adPts').textContent = me.adPoints;
   $('adGo').disabled = me.adsLeft <= 0; $('fzGo').disabled = $('fzAll').disabled = me.hot <= 0;
   $('shGo').disabled = me.satHacksLeft <= 0; for (const b of ['shGo', 'adGo', 'raceGo']) $(b).classList.add('hk'); drawFreezes(); drawKits(); drawLevels(); drawOpen(); $('dev').textContent = device(); $('apiUrl').textContent = API;
 }

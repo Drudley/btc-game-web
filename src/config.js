@@ -4,7 +4,7 @@ export const CONFIG = {
   pricePerThUsd: 18.5,
   thCap: 1000,
   split: { player: 80, project: 15, owner: 5 },
-  adShare: 90, adGrantHours: 24,
+  adShare: 90, adHacksPerDay: 20, // ad hack: watch ad -> one untargeted hack; pass = 90% of that view's revenue
   mockAdRevenueSats: 12,       // mock settled revenue per ad view (real: ad network, OPEN)
   failTargetPct: 5, failAttackerCapPct: 25, failDefenderDiv: 5,
   stealPct: 10,

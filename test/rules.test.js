@@ -17,4 +17,5 @@ assert.equal(w.payouts.a, 250); assert.equal(w.payouts.c, 200);
 console.log('all rules tests passed');
 assert.deepEqual([0,1,2,3,4,5].map(f => R.hackTimer(f, 0)), [60,55,50,45,40,35]);
 assert.equal(R.hackTimer(3, 2), 55); assert.equal(R.hackTimer(0, 5), 85); assert.equal(R.hackTimer(20, 0), 15);
-console.log('timer tests passed');
+assert.deepEqual(R.adHackResult(12, true), { credit: 10, pool: 2 }); assert.deepEqual(R.adHackResult(12, false), { credit: 0, pool: 12 });
+console.log('timer + ad hack tests passed');

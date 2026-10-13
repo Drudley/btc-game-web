@@ -41,6 +41,8 @@ export function steal(defender, attacker) { return Math.min(f(defender * C.steal
 export function robAllowed(log, attackerId, defenderId, day) {
   return !log.some(r => r.def === defenderId && r.day === day && r.success);
 }
+// Ad hack: pass -> player gets 90% share, 10% to pool. Fail/timeout -> player gets nothing, no penalty; whole view revenue -> pool.
+export function adHackResult(revenueSats, pass) { if (!pass) return { credit: 0, pool: revenueSats }; return adCredit(revenueSats); }
 export function adCredit(revenueSats) { const c = f(revenueSats * C.adShare / 100); return { credit: c, pool: revenueSats - c }; }
 export function msatToPaid(msat) { const s = f(msat / 1000); return msat % 1000 >= 500 ? s + 1 : s; }
 export function lnFee(amount) { return f(amount * C.lnFeePermille / 1000) + C.lnFeeBase; }

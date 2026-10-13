@@ -7,7 +7,7 @@ export function newState() {
   const bots = names.map((n, i) => ({ id: 'bot' + i, name: n, tier: i % 3 === 0 ? 'free' : 'paid',
     hot: [8, 45, 120, 300, 900, 2500, 60, 15, 5000, 700][i], firewall: i % 4, th: i % 3 === 0 ? 0 : 1 + (i % 4) }));
   return { day: 1, minute: 0, week: 1, pool: 0,
-    me: { id: 'me', name: 'you', tier: 'free', hot: 0, msat: 0, cold: 0, th: [], adUntil: 0, pendingAdSats: 0,
+    me: { id: 'me', name: 'you', tier: 'free', hot: 0, msat: 0, cold: 0, th: [], 
           firewall: 0, anti: 0, thaw: null },
     bots, ledger: [], robLog: [], reports: [], weekRuns: [], lastRace: null };
 }
@@ -27,9 +27,15 @@ export function buyTh(s, qty, channel) {
   if (s.me.tier === 'free') { s.me.tier = 'paid'; const c = R.msatToPaid(s.me.msat); s.me.hot += c; s.me.msat = 0; entry(s, 'convert', c, 'free msat moved to paid'); }
   return null;
 }
-export function watchAd(s) {
-  s.me.adUntil = now(s) + C.adGrantHours * 60; s.me.pendingAdSats += C.mockAdRevenueSats;
-  entry(s, 'ad', 0, `Ad miner granted 24h (revenue credited at settlement)`);
+const adDay = s => (s.adDay ??= { views: 0, rev: 0, players: 0, pool: 0, wins: 0 });
+export const adHacksLeft = s => C.adHacksPerDay - adDay(s).views;
+// Watching starts an ad hack. Returns null if the daily limit is reached.
+export function watchAd(s) { const d = adDay(s); if (d.views >= C.adHacksPerDay) return null; d.views++; return { revenue: C.mockAdRevenueSats }; }
+export function resolveAdHack(s, ad, pass) {
+  const d = adDay(s), r = R.adHackResult(ad.revenue, pass); d.rev += ad.revenue; d.players += r.credit; d.pool += r.pool; s.pool += r.pool;
+  if (pass) { d.wins++; if (s.me.tier === 'free') s.me.msat += r.credit * 1000; else s.me.hot += r.credit; entry(s, 'adhack', r.credit, `Ad hack passed: ${r.credit} sats (90% of ad revenue)`); }
+  else entry(s, 'adhack', 0, 'Ad hack failed: no reward, no penalty');
+  return r;
 }
 // Advance clock; settle at 00:00 UTC each day; close week every 7 days.
 export function advance(s, minutes, onEvent) {
@@ -50,11 +56,9 @@ function settleDay(s) {
   s.pool += sp.pool + d.pool;
   const mine = d.credits.me || 0; if (mine) { s.me.hot += mine; entry(s, 'mining', mine, `Day ${s.day} mining credit`); }
   s.bots.forEach(b => b.hot += d.credits[b.id] || 0);
-  let adRev = s.me.pendingAdSats, ad = R.adCredit(adRev); s.pool += ad.pool;
-  if (ad.credit) { if (s.me.tier === 'free') s.me.msat += ad.credit * 1000; else s.me.hot += ad.credit; entry(s, 'ad', ad.credit, 'Ad settlement 90%'); }
-  s.me.pendingAdSats = 0;
+  const ad = adDay(s); s.adDay = null; // ad hacks were credited instantly; report only
   s.bots.forEach(b => { if (b.tier === 'free') b.hot += 2; });
-  s.reports.unshift({ date: `Day ${s.day}`, thSold: s.me.th.filter(t => t.since >= dayStart).length, net: N, ...sp, mine, adRev, adPlayers: ad.credit, adPool: ad.pool });
+  s.reports.unshift({ date: `Day ${s.day}`, thSold: s.me.th.filter(t => t.since >= dayStart).length, net: N, ...sp, mine, adViews: ad.views, adWins: ad.wins, adRev: ad.rev, adPlayers: ad.players, adPool: ad.pool });
 }
 function closeWeek(s) {
   const runs = [...s.weekRuns, ...s.bots.slice(0, 6).map(b => ({ id: b.id, name: b.name, stages: Math.floor(Math.random() * 6), time: +(60 + Math.random() * 90).toFixed(1), wrong: Math.floor(Math.random() * 6) }))];

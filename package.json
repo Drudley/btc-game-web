@@ -1,1 +1,1 @@
-{"name":"btc-game-web","private":true,"type":"module","scripts":{"test":"node test/rules.test.js","serve":"python3 -m http.server 8080"}}
+{"name":"btc-game-web","private":true,"type":"module","scripts":{"test":"node test/rules.test.js && node test/games.test.js","serve":"python3 -m http.server 8080"}}

@@ -1,6 +1,7 @@
 // Five v1 puzzles, styled after the "Breach Bench" reference bench. Each reports only {pass, time, wrong};
 // sim.js decides sats. Original implementation.
 import { CONFIG as C } from './config.js';
+import { genBoard, flood as floodB, maskOf } from './circuitgen.js';
 const h = (tag, attrs = {}, ...kids) => { const e = document.createElement(tag); for (const [k, v] of Object.entries(attrs)) k === 'class' ? e.className = v : k.startsWith('on') ? e[k] = v : e.setAttribute(k, v); kids.flat().forEach(k => k != null && e.append(k)); return e; };
 const svg = (w, inner) => { const d = document.createElement('div'); d.innerHTML = `<svg viewBox="0 0 100 100" class="${w}">${inner}</svg>`; return d.firstChild; };
 // Tunables (mirror the reference "Live config" defaults)
@@ -42,7 +43,7 @@ export function runGame(root, game, seconds, done) {
 
 // 01 Password crack: on-screen keypad, exact vs misplaced marked separately, 6 wrong submits.
 function password(el, g) {
-  const CS = '0123456789ABCDEF'.split(''), pool = [...CS], code = []; for (let i = 0; i < 4; i++) code.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+  const CS = '0123456789'.split(''), pool = [...CS], code = []; for (let i = 0; i < 4; i++) code.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
   let cur = []; const slots = h('div', { class: 'slots' }), hist = h('div', { class: 'hist' }), left = h('span', { class: 'pill' });
   const keypad = h('div', { class: 'keypad' }, CS.map(c => h('button', { class: 'key', onclick: () => add(c) }, c)));
   const draw = () => { slots.innerHTML = ''; for (let i = 0; i < 4; i++) slots.append(h('div', { class: 'slot' + (cur[i] ? ' on' : '') }, cur[i] || '·'));
@@ -53,83 +54,67 @@ function password(el, g) {
   const submit = () => { if (cur.length !== 4) return; const marks = cur.map((c, i) => c === code[i] ? 'exact' : code.includes(c) ? 'near' : 'miss');
     hist.prepend(h('div', { class: 'row' }, cur.map((c, i) => h('span', { class: 'mark ' + marks[i] }, c)))); cur = [];
     if (marks.every(m => m === 'exact')) return g.pass(); wrongs++; g.wrong(); g.beep('bad'); draw(); if (wrongs >= 6) g.fail('guesses'); };
-  g.key(e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Backspace') del(); else { const k = e.key.toUpperCase(); CS.includes(k) && add(k); } });
-  el.append(h('p', { class: 'help' }, 'Charset A–F and 0–9, no repeats. ', h('span', { class: 'mark exact' }, 'G'), ' right symbol, right slot. ', h('span', { class: 'mark near' }, 'A'), ' right symbol, wrong slot. Six wrong submits ends it. ', left),
+  g.key(e => { if (e.key === 'Enter') { e.preventDefault(); submit(); } else if (e.key === 'Backspace') del(); else { CS.includes(e.key) && add(e.key); } });
+  el.append(h('p', { class: 'help' }, 'Digits 0–9, four of them, no repeats. ', h('span', { class: 'mark exact' }, '7'), ' right symbol, right slot. ', h('span', { class: 'mark near' }, '3'), ' right symbol, wrong slot. Six wrong submits ends it. ', left),
     slots, keypad, h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: del }, 'Delete'), h('button', { class: 'btn', onclick: submit }, 'Submit')), hist); draw();
 }
 
 // 02 Packet timing: packets slide along a track at uneven intervals; tap while one is inside the gate. 5 hits; misses never clear hits.
 function packet(el, g) {
   const GATE = 0.72, NEED = 5; let packets = [], spawnIn = 0.25, hits = 0, id = 0;
-  const half = () => Math.max(0.03, TUNE.packetSpeed * TUNE.packetWindowMs / 2000); // gate half-width in track units
+  const half = () => Math.max(0.03, TUNE.packetSpeed * TUNE.packetWindowMs / 2000); // gate half-width (base speed): window ≈ 155–212 ms per packet
   const track = h('div', { class: 'track' }), gate = h('div', { class: 'gate' }), bank = h('div', { class: 'bank' });
   track.append(gate); const drawBank = () => { bank.innerHTML = ''; for (let i = 0; i < NEED; i++) bank.append(h('i', { class: i < hits ? 'on' : '' })); };
-  g.loop(dt => { spawnIn -= dt; if (spawnIn <= 0) { packets.push({ id: id++, x: -0.06, el: h('div', { class: 'pkt' }) }); track.append(packets.at(-1).el); spawnIn = TUNE.packetIntervalMs / 1000 * (0.7 + Math.random() * 0.6); }
+  g.loop(dt => { spawnIn -= dt; if (spawnIn <= 0) { let v = TUNE.packetSpeed * (0.85 + Math.random() * 0.3); const prev = packets.at(-1);
+      if (prev && v > prev.v) { const catchT = (prev.x + 0.06) / (v - prev.v), exitT = (1.08 - prev.x) / prev.v; if (catchT < exitT) v = prev.v; } // never overtake
+      packets.push({ id: id++, x: -0.06, v, el: h('div', { class: 'pkt' }) }); track.append(packets.at(-1).el); spawnIn = TUNE.packetIntervalMs / 1000 * (0.8 + Math.random() * 0.5); }
     const w = half(); gate.style.left = `${(GATE - w) * 100}%`; gate.style.width = `${w * 200}%`;
-    for (const p of packets) { p.x += TUNE.packetSpeed * dt; p.el.style.left = `${p.x * 100}%`; p.el.classList.toggle('in', Math.abs(p.x - GATE) <= w); if (p.x > 1.08) p.el.remove(); }
+    for (const p of packets) { p.x += p.v * dt; p.el.style.left = `${p.x * 100}%`; p.el.classList.toggle('in', Math.abs(p.x - GATE) <= w); if (p.x > 1.08) p.el.remove(); }
     packets = packets.filter(p => p.x <= 1.08); });
   const tap = () => { const w = half(); let best = null; for (const p of packets) if (Math.abs(p.x - GATE) <= w && (!best || Math.abs(p.x - GATE) < Math.abs(best.x - GATE))) best = p;
     if (!best) { g.wrong(); g.beep('bad'); gate.classList.add('miss'); setTimeout(() => gate.classList.remove('miss'), 160); return; }
     best.el.remove(); packets = packets.filter(p => p !== best); hits++; g.beep('tap'); gate.classList.add('hit'); setTimeout(() => gate.classList.remove('hit'), 140); drawBank(); if (hits >= NEED) g.pass(); };
   g.key(e => { if (e.code === 'Space') { e.preventDefault(); tap(); } });
-  el.append(h('p', { class: 'help' }, `Tap while a packet is inside the gate. Bank ${NEED} hits. Space also taps. A miss never clears hits already banked.`), track, bank, h('button', { class: 'btn big', onclick: tap }, 'Tap')); drawBank();
+  el.append(h('p', { class: 'help' }, `Tap while a packet is inside the gate. Packets vary in speed. Bank ${NEED} hits. Space also taps. A miss never clears hits already banked.`), track, bank, h('button', { class: 'btn big', onclick: tap }, 'Tap')); drawBank();
 }
 
-// 03 Circuit trace: fixed 5×5 boards with source, output, two grounds; tap wires to rotate; power floods from source. 8 undos.
-// Tile connection bitmask: 1 up, 2 right, 4 down, 8 left.
-const BOARDS = [
-  { s: [0, 2, 2], o: [4, 2, 8], g: [[2, 0], [1, 4]], w: [[1, 2, 9], [1, 1, 6], [2, 1, 10], [3, 1, 12], [3, 2, 3], [1, 3, 10], [2, 3, 6], [3, 3, 9]] },
-  { s: [2, 0, 4], o: [2, 4, 1], g: [[4, 1], [0, 3]], w: [[2, 1, 3], [3, 1, 12], [3, 2, 5], [3, 3, 9], [2, 3, 6], [1, 3, 5], [1, 1, 10], [1, 2, 6]] },
-  { s: [0, 1, 2], o: [4, 3, 8], g: [[2, 2], [0, 2]], w: [[1, 1, 12], [1, 2, 5], [1, 3, 3], [2, 3, 10], [3, 3, 10], [2, 1, 10], [3, 2, 6], [3, 1, 9]] },
-];
-const rotM = (m, r) => { for (let i = 0; i < r; i++) m = ((m << 1) | (m >> 3)) & 15; return m; };
+// 03 Circuit trace: generated 7×7 board (always solvable), source on the left edge, OUT on the right, 3 grounds; tap wires to rotate. 12 undos.
+const CN = 7, UNDOS = 12;
 function circuit(el, g) {
-  const B = BOARDS[Math.floor(Math.random() * BOARDS.length)];
-  const grid = Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => ({ kind: 'empty', base: 0, rot: 0 })));
-  const put = (x, y, kind, base) => grid[y][x] = { kind, base, rot: 0 };
-  put(B.s[0], B.s[1], 'source', B.s[2]); put(B.o[0], B.o[1], 'output', B.o[2]); B.g.forEach(([x, y]) => put(x, y, 'ground', 15));
-  B.w.forEach(([x, y, m]) => { put(x, y, 'wire', m); grid[y][x].rot = 1 + Math.floor(Math.random() * 3); });
-  const mask = c => c.kind === 'wire' ? rotM(c.base, c.rot) : c.base;
-  const D = [[0, -1, 1, 4], [1, 0, 2, 8], [0, 1, 4, 1], [-1, 0, 8, 2]];
-  const flood = () => { const on = new Set([B.s.slice(0, 2).join()]), q = [B.s.slice(0, 2)]; let out = false, gnd = false;
-    while (q.length) { const [x, y] = q.shift(), m = mask(grid[y][x]); for (const [dx, dy, b, ob] of D) { const nx = x + dx, ny = y + dy; if (!(m & b) || nx < 0 || ny < 0 || nx > 4 || ny > 4) continue;
-      const n = grid[ny][nx]; if (n.kind === 'empty' || !(mask(n) & ob) || on.has(nx + ',' + ny)) continue; on.add(nx + ',' + ny); if (n.kind === 'output') out = true; if (n.kind === 'ground') gnd = true; else q.push([nx, ny]); } }
-    return { on, out, gnd }; };
-  let undos = []; const board = h('div', { class: 'board' }), uinfo = h('span', { class: 'pill' });
+  const B = genBoard(CN, { grounds: 3 }), grid = B.grid, flood = () => floodB(grid, B.source);
+  let undos = [], used = 0; const board = h('div', { class: 'board b7' }), uinfo = h('span', { class: 'pill' });
   const lines = m => [[1, 50, 4], [2, 96, 50], [4, 50, 96], [8, 4, 50]].map(([b, x, y]) => m & b ? `<line x1="50" y1="50" x2="${x}" y2="${y}" stroke="currentColor" stroke-width="12" stroke-linecap="round"/>` : '').join('');
   const draw = () => { const f = flood(); board.innerHTML = '';
-    grid.forEach((row, y) => row.forEach((c, x) => { const hot = f.on.has(x + ',' + y), m = mask(c);
-      let inner = c.kind === 'empty' ? '' : lines(m) + (c.kind === 'ground' ? '<g stroke="currentColor" stroke-width="6"><line x1="30" y1="58" x2="70" y2="58"/><line x1="38" y1="70" x2="62" y2="70"/><line x1="46" y1="80" x2="54" y2="80"/></g>'
-        : c.kind === 'source' ? '<circle cx="50" cy="50" r="18" fill="currentColor"/>' : c.kind === 'output' ? '<rect x="28" y="28" width="44" height="44" rx="6" fill="none" stroke="currentColor" stroke-width="8"/><text x="50" y="57" font-size="18" text-anchor="middle" fill="currentColor">OUT</text>' : '');
+    grid.forEach((row, y) => row.forEach((c, x) => { const hot = f.on.has(x + ',' + y), m = maskOf(c);
+      const inner = c.kind === 'empty' ? '' : lines(m) + (c.kind === 'ground' ? '<g stroke="currentColor" stroke-width="6"><line x1="30" y1="58" x2="70" y2="58"/><line x1="38" y1="70" x2="62" y2="70"/><line x1="46" y1="80" x2="54" y2="80"/></g>'
+        : c.kind === 'source' ? '<circle cx="50" cy="50" r="18" fill="currentColor"/>' : c.kind === 'output' ? '<rect x="24" y="24" width="52" height="52" rx="6" fill="#06110c" stroke="currentColor" stroke-width="8"/><text x="50" y="58" font-size="22" text-anchor="middle" fill="currentColor">OUT</text>' : '');
       const cls = c.kind === 'ground' ? (hot ? 'short' : 'dim') : hot ? 'hot' : 'dim';
       const b = h('button', { class: `cell-t ${c.kind}`, 'aria-label': c.kind }); b.append(svg(cls, inner)); if (c.kind === 'wire') b.onclick = () => rotate(x, y); board.append(b); }));
-    uinfo.textContent = `${8 - used} undos left`; return f; };
-  let used = 0;
-  const check = (prev) => { const f = draw(); if (f.gnd && !prev.gnd) { g.wrong(); g.beep('bad'); if (TUNE.circuitFailOnGround) return g.fail('short'); }
-    if (f.out && !f.gnd) g.pass(); };
+    uinfo.textContent = `${UNDOS - used} undos left`; return f; };
+  const check = prev => { const f = draw(); if (f.gnd && !prev.gnd) { g.wrong(); g.beep('bad'); if (TUNE.circuitFailOnGround) return g.fail('short'); } if (f.out && !f.gnd) g.pass(); };
   const rotate = (x, y) => { const prev = flood(); undos.push([x, y]); grid[y][x].rot = (grid[y][x].rot + 1) % 4; g.beep('tap'); check(prev); };
-  const undo = () => { if (!undos.length || used >= 8) return; const prev = flood(); const [x, y] = undos.pop(); used++; grid[y][x].rot = (grid[y][x].rot + 3) % 4; check(prev); };
-  el.append(h('p', { class: 'help' }, 'Tap a wire to rotate it. Power the OUT block from the source without powering an amber ground. A short counts as a wrong input. ', uinfo), board,
+  const undo = () => { if (!undos.length || used >= UNDOS) return; const prev = flood(); const [x, y] = undos.pop(); used++; grid[y][x].rot = (grid[y][x].rot + 3) % 4; check(prev); };
+  el.append(h('p', { class: 'help' }, 'Tap a wire to rotate it. Power the OUT block from the source (left edge) without powering an amber ground. A short counts as a wrong input. ', uinfo), board,
     h('div', { class: 'actions' }, h('button', { class: 'btn ghost', onclick: undo }, 'Undo'))); draw();
 }
 
-// 04 Firewall capture: packets drop down 4 lanes; toggle each lane's gate. Hostile through an open gate = capture; friendly = leak (attempt can't pass).
+// 04 Firewall capture: packets drop down 5 lanes at ±15% speed each; toggle each lane's gate. Hostile through an open gate = capture; friendly = leak (attempt can't pass).
 function capture(el, g) {
-  const NEED = 6, LINE = 0.86; let packets = [], spawnIn = 0.3, caps = 0, leaks = 0; const gates = [false, false, false, false];
+  const NEED = 6, LINE = 0.86; let packets = [], spawnIn = 0.3, caps = 0, leaks = 0; const L = 5, gates = Array(L).fill(false);
   const field = h('div', { class: 'field' }), cnt = h('span', { class: 'pill' });
-  const lanes = [0, 1, 2, 3].map(i => { const lane = h('div', { class: 'lane', onclick: () => toggle(i) }), gate = h('div', { class: 'lgate btn' }, `${i + 1}`); lane.append(gate); field.append(lane); return { lane, gate }; });
+  const lanes = [...Array(L).keys()].map(i => { const lane = h('div', { class: 'lane', onclick: () => toggle(i) }), gate = h('div', { class: 'lgate btn' }, `${i + 1}`); lane.append(gate); field.append(lane); return { lane, gate }; });
   const toggle = i => { gates[i] = !gates[i]; lanes[i].gate.classList.toggle('open', gates[i]); g.beep('tap'); };
   const draw = () => cnt.textContent = `Captured ${caps}/${NEED} · Leaks ${leaks}`;
-  g.loop(dt => { spawnIn -= dt; if (spawnIn <= 0) { const busy = new Set(packets.filter(p => p.y < 0.28).map(p => p.lane)); const free = [0, 1, 2, 3].filter(l => !busy.has(l));
-      if (free.length) { const lane = free[Math.floor(Math.random() * free.length)], p = { lane, y: -0.08, hostile: Math.random() < 0.55, el: h('div', { class: 'drop' }) };
+  g.loop(dt => { spawnIn -= dt; if (spawnIn <= 0) { const busy = new Set(packets.filter(p => p.y < 0.28).map(p => p.lane)); const free = [...Array(L).keys()].filter(l => !busy.has(l));
+      if (free.length) { const lane = free[Math.floor(Math.random() * free.length)], p = { lane, y: -0.08, v: TUNE.captureDropSpeed * (0.85 + Math.random() * 0.3), hostile: Math.random() < 0.55, el: h('div', { class: 'drop' }) };
         p.el.classList.add(p.hostile ? 'hostile' : 'friendly'); lanes[lane].lane.append(p.el); packets.push(p); spawnIn = 0.5 + Math.random() * 0.6; } else spawnIn = 0.08; }
-    for (const p of packets) { p.y += TUNE.captureDropSpeed * dt; p.el.style.top = `${p.y * 100}%`;
+    for (const p of packets) { p.y += p.v * dt; p.el.style.top = `${p.y * 100}%`;
       if (!p.done && p.y >= LINE) { p.done = true; if (gates[p.lane]) { if (p.hostile) { caps++; g.beep('tap'); p.el.classList.add('caught'); }
           else { leaks++; g.wrong(); g.beep('bad'); g.note('A friendly packet got through. This attempt can no longer pass.'); } } p.el.classList.add('gone'); draw(); } }
     packets = packets.filter(p => { if (p.y > 1.12) { p.el.remove(); return false; } return true; });
     if (caps >= NEED && leaks === 0) g.pass(); });
-  g.key(e => { const i = { 1: 0, 2: 1, 3: 2, 4: 3 }[e.key]; if (i != null) toggle(i); });
-  el.append(h('p', { class: 'help' }, 'Open a lane gate (tap or keys 1–4) only for red hostiles. Catch six. Let any green friendly through and the attempt can’t pass. ', cnt), field); draw();
+  g.key(e => { const i = +e.key - 1; if (i >= 0 && i < L) toggle(i); });
+  el.append(h('p', { class: 'help' }, 'Open a lane gate (tap or keys 1–5) only for red hostiles. Catch six. Let any green friendly through and the attempt can’t pass. ', cnt), field); draw();
 }
 
 // 05 Memory dump: 4 cells flash a sequence; repeat it. Length 3 → 6. Wrong tap = wrong input, new sequence of the same length. Taps during flash ignored.

@@ -4,7 +4,7 @@
 <p class=banner>BETA · test sats only, not real money · no withdrawals · ads are mock</p>
 <div id=signin class=hidden><section><h2>Pick a hacker name</h2><p class=muted>Test sign-in: this device gets a random ID. No Google, no email.</p><input id=nameIn maxlength=20 placeholder="e.g. niklas"> <button id=nameGo class=btn>Start</button></section></div>
 <main id=app class=hidden>
-<section><h2>Wallet</h2><div class=kv><span>Hot</span><b id=hot></b><span>Freezing</span><b id=freezing></b><span>Frozen</span><b id=frozen></b><span>Band</span><b id=band></b><span>Points</span><b id=pts></b><span>Firewall</span><b id=fwInfo></b><span>Exploit kits</span><b id=kitInfo></b></div>
+<section class=wide id=openHack></section><section><h2>Wallet</h2><div class=kv><span>Hot</span><b id=hot></b><span>Freezing</span><b id=freezing></b><span>Frozen</span><b id=frozen></b><span>Band</span><b id=band></b><span>Points</span><b id=pts></b><span>Firewall</span><b id=fwInfo></b><span>Exploit kits</span><b id=kitInfo></b></div>
 <p class=muted>Hot and freezing sats can be stolen. Frozen sats are safe and withdraw-only (withdrawals are off in the beta).</p></section>
 <section><h2>Cold storage</h2><p>Level <b id=coldLv></b> · freeze timer <b id=coldH></b></p><input id=fzAmt type=number min=1 placeholder="sats"> <button id=fzGo class=btn>Freeze</button> <button id=fzAll class="btn ghost">All hot</button>
 <div id=freezes></div><p class=muted>Freezing is permanent: once the timer ends the sats are frozen for good. While freezing they can still be stolen.</p></section>

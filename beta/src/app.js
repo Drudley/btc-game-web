@@ -13,6 +13,13 @@ let me = null, lvl = Number(localStorage.getItem('lvl') || 1), running = null;
 const toast = t => { const e = $('toast'); e.textContent = t; e.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove('on'), 2600); };
 const fmtDur = ms => { const s = Math.max(0, Math.floor(ms / 1000)), hh = Math.floor(s / 3600), mm = Math.floor(s % 3600 / 60); return hh ? `${hh}h ${mm}m` : `${mm}m ${s % 60}s`; };
 const safe = fn => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message); } };
+// One hack at a time: every hack-starting button (PvP, sat hack, race, practice, ad, resume) goes through this guard. While a start is in
+// flight or a hack/ad is open, further taps are ignored and the buttons are shown disabled (body.hacking).
+let starting = false; const busyUI = () => document.body.classList.toggle('hacking', starting || !!running || $('modal').classList.contains('on') || $('adbox').classList.contains('on'));
+const hackLock = fn => async (...a) => { if (starting || running || $('modal').classList.contains('on') || $('adbox').classList.contains('on')) return; starting = true; busyUI();
+  try { await fn(...a); } catch (e) { toast(e.message); } finally { starting = false; busyUI(); } };
+const MODE_T = { hack: 'PvP hack', sathack: 'Sat hack', race: 'Weekly race' };
+function startServer(body, ctx) { return call('/v1/attempts', body).then(s => { if (s.resumed) { toast('You already have an open hack: resuming it'); ctx = { mode: s.mode, title: MODE_T[s.mode] + ' (resumed)' }; } play(s, remoteEngine(s.attemptId), ctx); return s; }); }
 
 async function refresh() {
   me = await call('/v1/me');
@@ -21,8 +28,10 @@ async function refresh() {
   $('kitInfo').textContent = [1, 2, 3, 4, 5].filter(l => me.kits[l]).map(l => `L${l}×${me.kits[l]}`).join(' · ') || 'none';
   $('coldLv').textContent = 'L' + me.cold; $('coldH').textContent = me.freezeHours + ' h'; $('shLeft').textContent = me.satHacksLeft + '/20'; $('adsLeft').textContent = me.adsLeft; $('adPts').textContent = me.adPoints;
   $('adGo').disabled = me.adsLeft <= 0; $('fzGo').disabled = $('fzAll').disabled = me.hot <= 0;
-  $('shGo').disabled = me.satHacksLeft <= 0; drawFreezes(); drawKits(); drawLevels(); $('dev').textContent = device(); $('apiUrl').textContent = API;
+  $('shGo').disabled = me.satHacksLeft <= 0; for (const b of ['shGo', 'adGo', 'raceGo']) $(b).classList.add('hk'); drawFreezes(); drawKits(); drawLevels(); drawOpen(); $('dev').textContent = device(); $('apiUrl').textContent = API;
 }
+function drawOpen() { const el = $('openHack'); el.innerHTML = ''; if (!me.open || running) return;
+  el.append(h('p', {}, `You have an open ${MODE_T[me.open.mode] || 'hack'} (${me.open.left}s left). `, h('button', { class: 'btn hk', onclick: hackLock(() => startServer({ mode: me.open.mode }, {})) }, 'Resume it'))); }
 function drawFreezes() { const el = $('freezes'); el.innerHTML = ''; for (const f of me.freezes) el.append(h('div', { class: 'fz' }, h('span', {}, `${f.amount} sats · L${f.level} (${f.hours} h)`), h('b', {}, 'frozen in ' + fmtDur(f.until - Date.now())))); }
 setInterval(() => me && drawFreezes(), 1000);
 function drawLevels() { const el = $('levels'); el.innerHTML = '';
@@ -32,11 +41,12 @@ function drawLevels() { const el = $('levels'); el.innerHTML = '';
 function drawKits() { for (const id of ['kitsSh', 'kitsPvp']) { const el = $(id); el.innerHTML = ''; const k = curKit();
   for (let l = 0; l <= 5; l++) { const n = l ? me.kits[l] || 0 : null; el.append(Object.assign(h('button', { class: l === k ? 'on' : '', onclick: () => { kitSel = l; drawKits(); drawLevels(); loadTargets().catch(() => {}); } }, l ? `L${l}` : 'None', h('small', {}, l ? `×${n} · +${5 * l}s` : 'no kit')), { disabled: l > 0 && !n })); } } }
 
-function openModal() { $('modal').classList.add('on'); }
-function closeModal() { $('modal').classList.remove('on'); $('stage').innerHTML = ''; }
-$('closeM').onclick = () => { if (running) { if (running.paid && !confirm('Quit? A PvP hack you quit counts as a failed hack.')) return; running.ctl.abort(); } else closeModal(); };
+function openModal() { $('modal').classList.add('on'); busyUI(); }
+function closeModal() { $('modal').classList.remove('on'); $('stage').innerHTML = ''; busyUI(); refreshAll(); }
+const refreshAll = () => Promise.all([refresh(), loadTargets(), loadStore(), loadRace()]).catch(() => {}); // no stale wallet/kits/targets/race after a hack
+$('closeM').onclick = () => { if (starting) return; if (running) { if (running.paid && !confirm('Quit? A PvP hack you quit counts as a failed hack.')) return; running.ctl.abort(); } else closeModal(); };
 
-function showResult(res, ctx) { running = null; const st = $('stage'); st.innerHTML = '';
+function showResult(res, ctx) { running = null; busyUI(); const st = $('stage'); st.innerHTML = '';
   const lines = []; const s = res.settlement, r = res.reward;
   if (s) { if (res.pass) lines.push(s.stolen ? `Stole ${s.stolen} sats${s.fromFreezing ? ` (${s.fromFreezing} from freezing)` : ''}.` : s.note || 'Nothing to steal.');
     else lines.push(s.lost ? `Lost ${s.lost} hot sats: ${s.toDefender} to the defender, ${s.toBudget ?? s.burned ?? 0} back to the budget.` : 'No sats lost.'); }
@@ -45,18 +55,18 @@ function showResult(res, ctx) { running = null; const st = $('stage'); st.innerH
   if (ctx.mode === 'practice') lines.push('Practice only: nothing paid.');
   st.append(h('div', { class: 'result' + (res.pass ? '' : ' fail') }, h('p', { class: 'kicker' }, res.pass ? 'Access granted' : 'Access denied · ' + (res.reason || 'fail')), h('h3', {}, ctx.title),
     ...lines.map(t => h('p', { class: 'res-line' }, t)), h('button', { class: 'btn', onclick: closeModal }, 'Done')));
-  refresh().catch(() => {}); if (ctx.mode === 'race') loadRace().catch(() => {}); if (ctx.mode === 'hack') loadTargets().catch(() => {});
+  refreshAll();
 }
-function play(start, engine, ctx) { openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
+function play(start, engine, ctx) { $('stage').innerHTML = ''; openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
 
-$('shGo').onclick = safe(async () => { const s = await call('/v1/attempts', { mode: 'sathack', level: lvl, kit: curKit(), puzzle: FP }); play(s, remoteEngine(s.attemptId), { mode: 'sathack', title: `Sat hack · L${lvl} · ${s.sats} sats` }); refresh(); });
+$('shGo').onclick = hackLock(async () => { const L = lvl; await startServer({ mode: 'sathack', level: L, kit: curKit(), puzzle: FP }, { mode: 'sathack', title: `Sat hack · L${L}` }); refresh().catch(() => {}); });
 async function loadTargets() { const t = await call('/v1/targets'), tb = $('targets'); tb.innerHTML = '';
   $('tgNote').textContent = me && me.hot <= 0 ? 'You have no hot sats yet. Win some free sat hacks first: you can only steal up to your own hot sats.' : t.length ? '' : 'No targets in your band right now.';
   for (const x of t) tb.append(h('tr', {}, h('td', {}, x.name, x.bot ? h('span', { class: 'tbot' }, 'bot') : null), h('td', {}, x.stealable + ' sats'), h('td', {}, 'L' + x.firewall), h('td', {}, hackSec(x.firewall, curKit()) < MIN() ? lockTxt(x.firewall) : hackSec(x.firewall, curKit()) + 's'),
-    h('td', {}, Object.assign(h('button', { class: 'btn', onclick: safe(async () => { const s = await call('/v1/attempts', { mode: 'hack', target: x.id, kit: curKit(), puzzle: FP }); play(s, remoteEngine(s.attemptId), { mode: 'hack', title: 'Hack ' + x.name + (s.kit ? ` · L${s.kit} kit` : '') }); }) }, hackSec(x.firewall, curKit()) < MIN() ? 'Locked' : 'Hack'), { disabled: hackSec(x.firewall, curKit()) < MIN() })))); }
+    h('td', {}, Object.assign(h('button', { class: 'btn hk', onclick: hackLock(async () => { const k = curKit(); await startServer({ mode: 'hack', target: x.id, kit: k, puzzle: FP }, { mode: 'hack', title: 'Hack ' + x.name + (k ? ` · L${k} kit` : '') }); }) }, hackSec(x.firewall, curKit()) < MIN() ? 'Locked' : 'Hack'), { disabled: hackSec(x.firewall, curKit()) < MIN() })))); }
 $('tgRefresh').onclick = safe(loadTargets);
 
-$('adGo').onclick = safe(async () => { const box = $('adbox'), bar = $('adBar'); box.classList.add('on'); bar.style.width = '0';
+$('adGo').onclick = hackLock(async () => { const box = $('adbox'), bar = $('adBar'); box.classList.add('on'); bar.style.width = '0';
   for (let i = 1; i <= 30; i++) { await new Promise(r => setTimeout(r, 100)); bar.style.width = (i / 30 * 100) + '%'; }
   try { const r = await call('/v1/ads/complete', { token: 'mock-ssv-' + crypto.randomUUID() }); toast(`+${r.granted} points`); } finally { box.classList.remove('on'); } await refresh(); loadStore(); });
 
@@ -81,9 +91,9 @@ async function loadRace() { const r = await call('/v1/race'); $('pool').textCont
   $('raceMine').textContent = r.mine ? `Your run: ${r.mine.stagesCleared}/5 stages · ${(r.mine.timeMs / 1000).toFixed(1)} s · ${r.mine.wrong} wrong` : r.entered ? 'Run in progress.' : '';
   const tb = $('standings'); tb.innerHTML = ''; r.standings.forEach((x, i) => tb.append(h('tr', {}, h('td', {}, '#' + (i + 1)), h('td', {}, x.name), h('td', {}, `${x.stages}/5`), h('td', {}, x.time + ' s'), h('td', {}, x.wrong + ' wrong'))));
   if (!r.standings.length) tb.append(h('tr', {}, h('td', {}, 'No runs yet this week.'))); }
-$('raceGo').onclick = safe(async () => { if (!confirm('One attempt per week: 5 puzzles, 40 s each. Start now?')) return; const s = await call('/v1/attempts', { mode: 'race' }); play(s, remoteEngine(s.attemptId), { mode: 'race', title: 'Weekly race' }); });
+$('raceGo').onclick = hackLock(async () => { if (!confirm('One attempt per week: 5 puzzles, 40 s each. Start now?')) return; await startServer({ mode: 'race' }, { mode: 'race', title: 'Weekly race' }); });
 
-const pg = $('pg'); for (const [id, G] of Object.entries(META)) pg.append(h('button', { class: 'tab', onclick: () => { const p = practice(id, BASE); play(p.start, p.engine, { mode: 'practice', title: 'Practice · ' + G.name }); } }, h('span', {}, G.no), G.name));
+const pg = $('pg'); for (const [id, G] of Object.entries(META)) pg.append(h('button', { class: 'tab hk', onclick: hackLock(async () => { const p = practice(id, BASE); play(p.start, p.engine, { mode: 'practice', title: 'Practice · ' + G.name }); }) }, h('span', {}, G.no), G.name));
 $('snd').onchange = e => SOUND.on = e.target.checked;
 $('rename').onclick = e => { e.preventDefault(); const n = prompt('New name', me?.name || ''); if (n) call('/v1/profile', { name: n }).then(refresh, err => toast(err.message)); };
 

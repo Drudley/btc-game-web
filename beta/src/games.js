@@ -18,7 +18,7 @@ export const fmtClock = ms => { const s = Math.max(0, ms) / 1000; return `${Math
 
 // Runs a server attempt (one or more stages). onDone(finalServerResponse)
 export function runAttempt(root, start, engine, onDone, label = '') {
-  let over = false, cleanup = () => {}, busy = false;
+  let over = false, cleanup = () => {}, queue = Promise.resolve();
   const finish = res => { if (over) return; over = true; cleanup(); beep(res.pass ? 'ok' : 'bad'); onDone(res); };
   const stage = (puzzle, pub, seconds, idx) => {
     cleanup(); root.innerHTML = ''; const G = META[puzzle]; let wrong = 0, raf, t0 = performance.now(), dead = false; const timers = [], keys = [], loops = [];
@@ -28,7 +28,8 @@ export function runAttempt(root, start, engine, onDone, label = '') {
       h('div', { class: 'stats' }, h('div', {}, wr, h('small', {}, 'Wrong')), h('div', {}, clock, h('small', {}, 'Running')))), body, note);
     const handle = res => { if (over || dead) return res; if (res.done) { finish(res); return res; }
       if (res.stagePassed) { dead = true; beep('ok'); setTimeout(() => stage(res.puzzle, res.public, start.seconds, res.stage), 350); return res; } return res; };
-    const call = async (fn, body) => { if (over || dead || busy) return null; busy = true; try { return handle(await fn(body)); } catch (e) { note.textContent = e.message; return null; } finally { busy = false; } };
+    // Inputs are serialized (never dropped, never sent in parallel); once the hack is over nothing more is sent.
+    const call = (fn, body) => (queue = queue.then(async () => { if (over || dead) return null; try { return handle(await fn(body)); } catch (e) { note.textContent = e.status ? e.message : 'Network problem: ' + e.message + ' (retrying didn\'t help; tap again)'; return null; } }));
     const api = { pub, now: () => performance.now() - t0, note: t => note.textContent = t, beep, get over() { return over || dead; },
       wrong(n = 1) { wrong += n; wr.textContent = wrong; root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake'); },
       input: b => call(engine.input, b), submit: b => call(engine.submit, b), loop: f => loops.push(f), after: (f, ms) => timers.push(setTimeout(() => !api.over && f(), ms)),
@@ -37,12 +38,12 @@ export function runAttempt(root, start, engine, onDone, label = '') {
     let last = performance.now();
     const frame = t => { if (api.over) return; const dt = Math.min(0.05, (t - last) / 1000); last = t; const left = seconds * 1000 - (t - t0);
       clock.textContent = fmtClock(left); clock.classList.toggle('low', left < 5000);
-      if (left <= 0) { if (G.onExpire) G.onExpire(api); dead = true; engine.abort().then(finish, () => finish({ done: true, pass: false, reason: 'expired' })); return; }
+      if (left <= 0) { if (G.onExpire) G.onExpire(api); const q = queue; dead = true; q.then(() => !over && engine.abort().then(finish, () => finish({ done: true, pass: false, reason: 'expired' }))); return; } // let an in-flight submit land first
       loops.forEach(f => !api.over && f(dt)); raf = requestAnimationFrame(frame); };
     G.mount(body, api); raf = requestAnimationFrame(frame);
   };
-  stage(start.puzzle, start.public, start.seconds, start.stage || 0);
-  return { abort: () => { if (over) return; cleanup(); engine.abort().then(finish, () => finish({ done: true, pass: false, reason: 'aborted' })); } };
+  stage(start.puzzle, start.public, start.left ?? start.seconds, start.stage || 0); // resumed hacks show the time actually left
+  return { abort: () => { if (over) return; cleanup(); queue.then(() => over ? null : engine.abort()).then(r => r && finish(r), () => finish({ done: true, pass: false, reason: 'aborted' })); } };
 }
 
 // 01 Password: one guess per server call

@@ -20,8 +20,8 @@ async function refresh() {
   $('band').textContent = me.band; $('pts').textContent = me.pts; $('fwInfo').textContent = me.firewall ? `L${me.firewall} · ${fmtDur(me.firewallUntil - Date.now())} left` : 'L0 (none)';
   $('kitInfo').textContent = [1, 2, 3, 4, 5].filter(l => me.kits[l]).map(l => `L${l}×${me.kits[l]}`).join(' · ') || 'none';
   $('coldLv').textContent = 'L' + me.cold; $('coldH').textContent = me.freezeHours + ' h'; $('shLeft').textContent = me.satHacksLeft + '/20'; $('adsLeft').textContent = me.adsLeft; $('adPts').textContent = me.adPoints;
-  $('shGo').disabled = me.satHacksLeft <= 0; $('adGo').disabled = me.adsLeft <= 0; $('fzGo').disabled = $('fzAll').disabled = me.hot <= 0;
-  drawFreezes(); drawKits(); drawLevels(); $('dev').textContent = device(); $('apiUrl').textContent = API;
+  $('adGo').disabled = me.adsLeft <= 0; $('fzGo').disabled = $('fzAll').disabled = me.hot <= 0;
+  $('shGo').disabled = me.satHacksLeft <= 0; drawFreezes(); drawKits(); drawLevels(); $('dev').textContent = device(); $('apiUrl').textContent = API;
 }
 function drawFreezes() { const el = $('freezes'); el.innerHTML = ''; for (const f of me.freezes) el.append(h('div', { class: 'fz' }, h('span', {}, `${f.amount} sats · L${f.level} (${f.hours} h)`), h('b', {}, 'frozen in ' + fmtDur(f.until - Date.now())))); }
 setInterval(() => me && drawFreezes(), 1000);
@@ -70,55 +70,6 @@ async function loadStore() { const c = await call('/v1/store'), el = $('store');
     C.price == null ? h('span', { class: 'pill' }, 'max level') : btn(`Upgrade to L${C.nextLevel}`, C.price, { item: 'cold' }, `cold storage L${C.nextLevel}`)));
   const K = c.kits, kRow = h('div', { class: 'row' }); for (let l = 1; l <= 5; l++) kRow.append(btn(`L${l} ×${K.uses}`, K.prices[l], { item: 'kit', level: l }, `L${l} exploit kit`));
   el.append(h('div', { class: 'item' }, h('b', {}, 'Exploit Kit'), h('p', { class: 'muted' }, `Bundle of ${K.uses} charges. +${K.secondsPerLevel} s × level on PvP and sat hacks; one charge per attempt (pass or fail). Owned: ` + ([1, 2, 3, 4, 5].filter(l => K.owned[l]).map(l => `L${l}×${K.owned[l]}`).join(' · ') || 'none')), kRow));
-}
-
-$('fzAll').disabled = me.hot <= 0;
-  drawFreezes(); drawKits(); drawLevels(); $('dev').textContent = device(); $('apiUrl').textContent = API;
-}
-function drawFreezes() { const el = $('freezes'); el.innerHTML = ''; for (const f of me.freezes) el.append(h('div', { class: 'fz' }, h('span', {}, `${f.amount} sats · L${f.level} (${f.hours} h)`), h('b', {}, 'frozen in ' + fmtDur(f.until - Date.now())))); }
-setInterval(() => me && drawFreezes(), 1000);
-function drawLevels() { const el = $('levels'); el.innerHTML = '';
-  for (let l = 1; l <= 5; l++) { const sec = hackSec(l, curKit()), lk = sec < MIN();
-    el.append(h('button', { class: (l === lvl ? 'on' : '') + (lk ? ' locked' : ''), onclick: () => { lvl = l; localStorage.setItem('lvl', l); drawLevels(); } }, `L${l}`, h('small', {}, lk ? lockTxt(l) : `${l} sat${l > 1 ? 's' : ''} · ${sec}s`))); }
-  const lk = hackSec(lvl, curKit()) < MIN(); $('shGo').disabled = me.satHacksLeft <= 0 || lk; $('shGo').textContent = lk ? `L${lvl} locked: needs L${kitNeed(lvl)}+ kit` : 'Start sat hack'; }
-function drawKits() { for (const id of ['kitsSh', 'kitsPvp']) { const el = $(id); el.innerHTML = ''; const k = curKit();
-  for (let l = 0; l <= 5; l++) { const n = l ? me.kits[l] || 0 : null; el.append(Object.assign(h('button', { class: l === k ? 'on' : '', onclick: () => { kitSel = l; drawKits(); drawLevels(); loadTargets().catch(() => {}); } }, l ? `L${l}` : 'None', h('small', {}, l ? `×${n} · +${5 * l}s` : 'no kit')), { disabled: l > 0 && !n })); } } }
-
-function openModal() { $('modal').classList.add('on'); }
-function closeModal() { $('modal').classList.remove('on'); $('stage').innerHTML = ''; }
-$('closeM').onclick = () => { if (running) { if (running.paid && !confirm('Quit? A PvP hack you quit counts as a failed hack.')) return; running.ctl.abort(); } else closeModal(); };
-
-function showResult(res, ctx) { running = null; const st = $('stage'); st.innerHTML = '';
-  const lines = []; const s = res.settlement, r = res.reward;
-  if (s) { if (res.pass) lines.push(s.stolen ? `Stole ${s.stolen} sats${s.fromFreezing ? ` (${s.fromFreezing} from freezing)` : ''}.` : s.note || 'Nothing to steal.');
-    else lines.push(s.lost ? `Lost ${s.lost} hot sats: ${s.toDefender} to the defender, ${s.toBudget ?? s.burned ?? 0} back to the budget.` : 'No sats lost.'); }
-  if (r) lines.push(r.sats ? `+${r.sats} test sats (hot).` : r.note || 'No reward.');
-  if (ctx.mode === 'race') lines.push(`Race run: ${res.stagesCleared ?? 0}/5 stages, ${((res.timeMs || 0) / 1000).toFixed(1)} s, ${res.wrong ?? 0} wrong.`);
-  if (ctx.mode === 'practice') lines.push('Practice only: nothing paid.');
-  st.append(h('div', { class: 'result' + (res.pass ? '' : ' fail') }, h('p', { class: 'kicker' }, res.pass ? 'Access granted' : 'Access denied · ' + (res.reason || 'fail')), h('h3', {}, ctx.title),
-    ...lines.map(t => h('p', { class: 'res-line' }, t)), h('button', { class: 'btn', onclick: closeModal }, 'Done')));
-  refresh().catch(() => {}); if (ctx.mode === 'race') loadRace().catch(() => {}); if (ctx.mode === 'hack') loadTargets().catch(() => {});
-}
-function play(start, engine, ctx) { openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
-
-$('shGo').onclick = safe(async () => { const s = await call('/v1/attempts', { mode: 'sathack', level: lvl, kit: curKit(), puzzle: FP }); play(s, remoteEngine(s.attemptId), { mode: 'sathack', title: `Sat hack · L${lvl} · ${s.sats} sats` }); refresh(); });
-async function loadTargets() { const t = await call('/v1/targets'), tb = $('targets'); tb.innerHTML = '';
-  $('tgNote').textContent = me && me.hot <= 0 ? 'You have no hot sats yet. Win some free sat hacks first: you can only steal up to your own hot sats.' : t.length ? '' : 'No targets in your band right now.';
-  for (const x of t) tb.append(h('tr', {}, h('td', {}, x.name, x.bot ? h('span', { class: 'tbot' }, 'bot') : null), h('td', {}, x.stealable + ' sats'), h('td', {}, 'L' + x.firewall), h('td', {}, hackSec(x.firewall, curKit()) < MIN() ? lockTxt(x.firewall) : hackSec(x.firewall, curKit()) + 's'),
-    h('td', {}, Object.assign(h('button', { class: 'btn', onclick: safe(async () => { const s = await call('/v1/attempts', { mode: 'hack', target: x.id, kit: curKit(), puzzle: FP }); play(s, remoteEngine(s.attemptId), { mode: 'hack', title: 'Hack ' + x.name + (s.kit ? ` · L${s.kit} kit` : '') }); }) }, hackSec(x.firewall, curKit()) < MIN() ? 'Locked' : 'Hack'), { disabled: hackSec(x.firewall, curKit()) < MIN() })))); }
-$('tgRefresh').onclick = safe(loadTargets);
-
-$('adGo').onclick = safe(async () => { const box = $('adbox'), bar = $('adBar'); box.classList.add('on'); bar.style.width = '0';
-  for (let i = 1; i <= 30; i++) { await new Promise(r => setTimeout(r, 100)); bar.style.width = (i / 30 * 100) + '%'; }
-  try { const r = await call('/v1/ads/complete', { token: 'mock-ssv-' + crypto.randomUUID() }); toast(`+${r.granted} points`); } finally { box.classList.remove('on'); } await refresh(); loadStore(); });
-
-const DESC = { timer: 'Timer boost: +10 s on your next hack', shield: 'Firewall shield: blocks the next successful steal against you', cold: 'Cold storage: shorter freeze timer', firewall: 'Firewall: attackers get 5 s less', anti: 'Anti-firewall: +5 s on your hacks' };
-async function loadStore() { const c = await call('/v1/store'), el = $('store'); el.innerHTML = '';
-  const item = (key, title, price, sub) => el.append(h('div', { class: 'item' }, h('b', {}, title), h('p', { class: 'muted' }, DESC[key] + (sub ? ' · ' + sub : '')),
-    price == null ? h('span', { class: 'pill' }, 'max level') : Object.assign(h('button', { class: 'btn', onclick: safe(async () => { await call('/v1/store/buy', { item: key }); toast('Bought ' + title); await refresh(); await loadStore(); }) }, `Buy · ${price} pts`), { disabled: c.pts < price })));
-  for (const [k, p] of Object.entries(c.buffs)) item(k, k === 'timer' ? 'Timer boost' : 'Firewall shield', p);
-  const U = c.upgrades; item('cold', `Cold storage L${U.cold.level}→L${U.cold.level + 1}`, U.cold.next, `now L${U.cold.level}`);
-  item('firewall', `Firewall L${U.firewall.level}→L${U.firewall.level + 1}`, U.firewall.next); item('anti', `Anti-firewall L${U.anti.level}→L${U.anti.level + 1}`, U.anti.next);
 }
 
 $('fzAll').onclick = () => { $('fzAmt').value = me.hot; };

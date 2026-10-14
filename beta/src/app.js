@@ -27,7 +27,7 @@ function countdown(title) { const st = $('stage'), t0 = performance.now(); openM
   const iv = setInterval(() => { const left = Math.ceil((CD - (performance.now() - t0)) / 1000); if (left >= 1) n.textContent = left; }, 100);
   return { wait: () => new Promise(r => setTimeout(r, Math.max(0, CD - (performance.now() - t0)))).finally(() => clearInterval(iv)), stop: () => clearInterval(iv) }; }
 async function startServer(body, ctx) { const cd = countdown(ctx.title || MODE_T[body.mode]);
-  let s; try { s = await call('/v1/attempts', body); } catch (e) { cd.stop(); closeModal(); throw e; }
+  let s; try { s = await call('/v1/attempts', body); } catch (e) { cd.stop(); closeModal(); throw new Error(e.status ? `Hack not started: ${e.message}` : 'Hack not started: network problem, nothing was used. Tap again.'); } // never fail silently after the countdown
   if (s.resumed) { cd.stop(); toast('You already have an open hack: resuming it'); ctx = { mode: s.mode, title: MODE_T[s.mode] + ' (resumed)' }; } else await cd.wait();
   play(s, remoteEngine(s.attemptId), ctx); return s; }
 
@@ -47,9 +47,9 @@ let fzDue = false; setInterval(() => { if (!me) return; drawFreezes(); if (!fzDu
 // Defender side (being robbed), race payouts, daily resets: poll while open, and refresh on focus / app resume.
 const quiet = () => !me || running || starting || document.hidden;
 setInterval(() => { if (!quiet()) refreshAll(); }, 15000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && me && !running) refreshAll(); });
-window.addEventListener('focus', () => { if (me && !running) refreshAll(); });
-window.addEventListener('pageshow', () => { if (me && !running) refreshAll(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me && !running && !starting) refreshAll(); });
+window.addEventListener('focus', () => { if (me && !running && !starting) refreshAll(); });
+window.addEventListener('pageshow', () => { if (me && !running && !starting) refreshAll(); });
 function drawLevels() { const el = $('levels'); el.innerHTML = '';
   for (let l = 1; l <= 5; l++) { const sec = hackSec(l, curKit()), lk = sec < MIN();
     el.append(h('button', { class: (l === lvl ? 'on' : '') + (lk ? ' locked' : ''), onclick: () => { lvl = l; localStorage.setItem('lvl', l); drawLevels(); } }, `L${l}`, h('small', {}, lk ? lockTxt(l) : `${l} sat${l > 1 ? 's' : ''} · ${sec}s`))); }

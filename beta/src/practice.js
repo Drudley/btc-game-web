@@ -1,4 +1,4 @@
-// Practice: same puzzle code as the server, run locally. No sats, no points, nothing sent.
+// Practice: same puzzle code as the server, run locally. No vsats, nothing sent.
 import { PUZZLES, startPuzzle, rng } from './puzzles.js';
 export function practice(id, seconds = 30) {
   const seed = 'practice:' + Math.random(), st = startPuzzle(id, seed), P = PUZZLES[id]; let n = 0, t0 = Date.now(), done = false;

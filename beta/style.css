@@ -75,3 +75,5 @@ input,select{max-width:100%}
 .board.b7{grid-template-columns:repeat(7,minmax(0,1fr));gap:3px;max-width:420px}.b7 .cell-t{padding:2px;border-radius:.35rem}
 .field{grid-template-columns:repeat(5,minmax(0,1fr))}.keypad{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media(max-width:520px){.keypad{grid-template-columns:repeat(5,minmax(0,1fr))}.board.b7{gap:2px}.lgate{left:2px;right:2px}}
+
+.cd{text-align:center;padding:40px 0}.cd-num{font:700 96px/1 var(--sans);color:var(--primary);font-variant-numeric:tabular-nums;animation:pulse 1s infinite}

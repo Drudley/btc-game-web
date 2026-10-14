@@ -19,7 +19,17 @@ let starting = false; const busyUI = () => document.body.classList.toggle('hacki
 const hackLock = fn => async (...a) => { if (starting || running || $('modal').classList.contains('on') || $('adbox').classList.contains('on')) return; starting = true; busyUI();
   try { await fn(...a); } catch (e) { toast(e.message); } finally { starting = false; busyUI(); } };
 const MODE_T = { hack: 'PvP hack', sathack: 'Sat hack', race: 'Weekly race' };
-function startServer(body, ctx) { return call('/v1/attempts', body).then(s => { if (s.resumed) { toast('You already have an open hack: resuming it'); ctx = { mode: s.mode, title: MODE_T[s.mode] + ' (resumed)' }; } play(s, remoteEngine(s.attemptId), ctx); return s; }); }
+// 3-2-1 before every hack. It starts on tap, so the start request runs underneath it; the puzzle is mounted only after it ends
+// (nothing of the puzzle is on screen during the countdown). The server starts the clock when its countdown ends, so no time is lost.
+const CD = 3000;
+function countdown(title) { const st = $('stage'), t0 = performance.now(); openModal(); st.innerHTML = ''; const n = h('div', { class: 'cd-num' }, '3');
+  st.append(h('div', { class: 'cd' }, h('p', { class: 'kicker' }, title || 'Hack'), n, h('p', { class: 'muted' }, 'Get ready…')));
+  const iv = setInterval(() => { const left = Math.ceil((CD - (performance.now() - t0)) / 1000); if (left >= 1) n.textContent = left; }, 100);
+  return { wait: () => new Promise(r => setTimeout(r, Math.max(0, CD - (performance.now() - t0)))).finally(() => clearInterval(iv)), stop: () => clearInterval(iv) }; }
+async function startServer(body, ctx) { const cd = countdown(ctx.title || MODE_T[body.mode]);
+  let s; try { s = await call('/v1/attempts', body); } catch (e) { cd.stop(); closeModal(); throw e; }
+  if (s.resumed) { cd.stop(); toast('You already have an open hack: resuming it'); ctx = { mode: s.mode, title: MODE_T[s.mode] + ' (resumed)' }; } else await cd.wait();
+  play(s, remoteEngine(s.attemptId), ctx); return s; }
 
 async function refresh() { render(await call('/v1/me')); }
 function render(m) { if (!m || m.hot == null) return; me = m;
@@ -65,7 +75,7 @@ function showResult(res, ctx) { running = null; busyUI(); const st = $('stage');
 }
 function play(start, engine, ctx) { $('stage').innerHTML = ''; $('openHack').innerHTML = ''; openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
 
-$('shGo').onclick = hackLock(async () => { const L = lvl; await startServer({ mode: 'sathack', level: L, kit: curKit(), puzzle: FP }, { mode: 'sathack', title: `Sat hack · L${L}` }); refresh().catch(() => {}); });
+$('shGo').onclick = hackLock(async () => { const L = lvl; await startServer({ mode: 'sathack', level: L, kit: curKit(), puzzle: FP }, { mode: 'sathack', title: `Sat hack · L${L}` }); }); // wallet arrives with the start response (no extra /v1/me)
 async function loadTargets() { const t = await call('/v1/targets'), tb = $('targets'); tb.innerHTML = '';
   const minHot = me?.minAttackHot ?? 10, pvpLocked = !me || me.hot < minHot;
   $('tgNote').textContent = pvpLocked ? `PvP locked: you need at least ${minHot} hot sats to attack (you have ${me?.hot ?? 0}), so a loss always costs something. Win free sat hacks first.` : t.length ? '' : 'No targets in your band right now.';
@@ -100,7 +110,7 @@ async function loadRace() { const r = await call('/v1/race'); $('pool').textCont
   if (!r.standings.length) tb.append(h('tr', {}, h('td', {}, 'No runs yet this week.'))); }
 $('raceGo').onclick = hackLock(async () => { if (!confirm('One attempt per week: 5 puzzles, 40 s each. Start now?')) return; await startServer({ mode: 'race' }, { mode: 'race', title: 'Weekly race' }); });
 
-const pg = $('pg'); for (const [id, G] of Object.entries(META)) pg.append(h('button', { class: 'tab hk', onclick: hackLock(async () => { const p = practice(id, BASE); play(p.start, p.engine, { mode: 'practice', title: 'Practice · ' + G.name }); }) }, h('span', {}, G.no), G.name));
+const pg = $('pg'); for (const [id, G] of Object.entries(META)) pg.append(h('button', { class: 'tab hk', onclick: hackLock(async () => { const p = practice(id, BASE); await countdown('Practice · ' + G.name).wait(); play(p.start, p.engine, { mode: 'practice', title: 'Practice · ' + G.name }); }) }, h('span', {}, G.no), G.name));
 $('snd').onchange = e => SOUND.on = e.target.checked;
 $('rename').onclick = e => { e.preventDefault(); const n = prompt('New name', me?.name || ''); if (n) call('/v1/profile', { name: n }).then(refresh, err => toast(err.message)); };
 

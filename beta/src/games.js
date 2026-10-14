@@ -29,7 +29,7 @@ export function runAttempt(root, start, engine, onDone, label = '') {
     const handle = res => { if (over || dead) return res; if (res.done) { finish(res); return res; }
       if (res.stagePassed) { dead = true; beep('ok'); setTimeout(() => stage(res.puzzle, res.public, start.seconds, res.stage), 350); return res; } return res; };
     // Inputs are serialized (never dropped, never sent in parallel); once the hack is over nothing more is sent.
-    const call = (fn, body) => (queue = queue.then(async () => { if (over || dead) return null; try { return handle(await fn(body)); } catch (e) { note.textContent = e.status ? e.message : 'Network problem: ' + e.message + ' (retrying didn\'t help; tap again)'; return null; } }));
+    const call = (fn, body) => (queue = queue.then(async () => { if (over || dead) return null; const vt = setTimeout(() => { if (!over && !dead) note.textContent = 'Verifying with server…'; }, 250); try { const r = await fn(body); clearTimeout(vt); if (note.textContent === 'Verifying with server…') note.textContent = ''; return handle(r); } catch (e) { clearTimeout(vt); note.textContent = e.status ? e.message : 'Network problem: ' + e.message + ' (retrying didn\'t help; tap again)'; return null; } }));
     const api = { pub, now: () => performance.now() - t0, note: t => note.textContent = t, beep, get over() { return over || dead; },
       wrong(n = 1) { wrong += n; wr.textContent = wrong; root.classList.remove('shake'); void root.offsetWidth; root.classList.add('shake'); },
       input: b => call(engine.input, b), submit: b => call(engine.submit, b), loop: f => loops.push(f), after: (f, ms) => timers.push(setTimeout(() => !api.over && f(), ms)),

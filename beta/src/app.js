@@ -58,7 +58,8 @@ function drawKits() { for (const id of ['kitsSh', 'kitsPvp']) { const el = $(id)
   for (let l = 0; l <= 5; l++) { const n = l ? me.kits[l] || 0 : null; el.append(Object.assign(h('button', { class: l === k ? 'on' : '', onclick: () => { kitSel = l; drawKits(); drawLevels(); loadTargets().catch(() => {}); } }, l ? `L${l}` : 'None', h('small', {}, l ? `×${n} · +${5 * l}s` : 'no kit')), { disabled: l > 0 && !n })); } } }
 
 function openModal() { $('modal').classList.add('on'); busyUI(); }
-function closeModal() { $('modal').classList.remove('on'); $('stage').innerHTML = ''; busyUI(); refreshAll(); }
+function closeModal() { $('modal').classList.remove('on'); $('stage').innerHTML = ''; busyUI(); } // lists were already refreshed when the result showed
+const refreshLists = () => Promise.all([loadTargets(), loadStore(), loadRace()]).catch(() => {}); // wallet itself arrives with the finish response
 const refreshAll = () => Promise.all([refresh(), loadTargets(), loadStore(), loadRace()]).catch(() => {}); // no stale wallet/kits/targets/race after a hack
 $('closeM').onclick = () => { if (starting) return; if (running) { if (running.paid && !confirm('Quit? A PvP hack you quit counts as a failed hack.')) return; running.ctl.abort(); } else closeModal(); };
 
@@ -71,7 +72,7 @@ function showResult(res, ctx) { running = null; busyUI(); const st = $('stage');
   if (ctx.mode === 'practice') lines.push('Practice only: nothing paid.');
   st.append(h('div', { class: 'result' + (res.pass ? '' : ' fail') }, h('p', { class: 'kicker' }, res.pass ? 'Access granted' : 'Access denied · ' + (res.reason || 'fail')), h('h3', {}, ctx.title),
     ...lines.map(t => h('p', { class: 'res-line' }, t)), h('button', { class: 'btn', onclick: closeModal }, 'Done')));
-  refreshAll();
+  setTimeout(refreshLists, 0);
 }
 function play(start, engine, ctx) { $('stage').innerHTML = ''; $('openHack').innerHTML = ''; openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
 

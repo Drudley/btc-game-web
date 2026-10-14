@@ -115,9 +115,14 @@ $('snd').onchange = e => SOUND.on = e.target.checked;
 $('rename').onclick = e => { e.preventDefault(); const n = prompt('New name', me?.name || ''); if (n) call('/v1/profile', { name: n }).then(refresh, err => toast(err.message)); };
 
 onMe(render); // server pushes the fresh wallet with every mutating response
+$('delAcc').onclick = safe(async () => {
+  if (!confirm('Delete your account? Your name, hacks and race entries are deleted and all test sats and points are forfeited. This cannot be undone.')) return;
+  if ((prompt('Type DELETE to confirm') || '').trim().toUpperCase() !== 'DELETE') return toast('Not deleted');
+  await call('/v1/account/delete', { confirm: 'DELETE' }); for (const k of ['device', 'named']) localStorage.removeItem(k);
+  alert('Your account was deleted.'); location.reload(); });
 async function boot() {
   if (!localStorage.getItem('named')) { $('signin').classList.remove('hidden');
     $('nameGo').onclick = safe(async () => { await call('/v1/profile', { name: $('nameIn').value }); localStorage.setItem('named', '1'); $('signin').classList.add('hidden'); boot(); }); return; }
   $('app').classList.remove('hidden'); await refresh(); await Promise.all([loadTargets(), loadStore(), loadRace()]);
 }
-boot().catch(e => toast('Server unreachable: ' + e.message));
+boot().catch(e => { if (e.status === 410) { for (const k of ['device', 'named']) localStorage.removeItem(k); return location.reload(); } toast('Server unreachable: ' + e.message); });

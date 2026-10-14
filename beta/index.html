@@ -1,8 +1,8 @@
 <!doctype html><html lang=en><head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Satoshi: Hacker Wars (beta)</title><link rel=preconnect href=https://fonts.googleapis.com><link rel=stylesheet href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@600;700;800&display=swap"><link rel=stylesheet href=style.css><link rel=stylesheet href=beta.css><meta name=theme-color content="#06110c"><link rel=icon href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E%E2%82%BF%3C/text%3E%3C/svg%3E"></head><body>
 <header><div class=brand><h1>Satoshi: Hacker Wars</h1><p>Mine. Breach. Stack. · beta</p></div><div class=who><b id=uname>…</b><span id=ptsTop class=pill>0 pts</span></div></header>
-<p class=banner>BETA · test sats only, not real money · no withdrawals · ads are mock</p>
-<div id=signin class=hidden><section><h2>Pick a hacker name</h2><p class=muted>Test sign-in: this device gets a random ID. No Google, no email.</p><input id=nameIn maxlength=20 placeholder="e.g. niklas"> <button id=nameGo class=btn>Start</button></section></div>
+<p class=banner>TEST BUILD · all sats are test sats with <b>no monetary value</b>. They can't be withdrawn, sold or exchanged · ads are mock</p>
+<div id=signin class=hidden><section><h2>Pick a hacker name</h2><p class=muted>Test sign-in: this device gets a random ID. No Google, no email. Your name and game history are stored on our server (<a href="https://drudley.github.io/btc-game-web/privacy/" target=_blank>privacy policy</a>).</p><p class=muted><b>Test build:</b> sats in this game are test sats only. They have no value and can never be withdrawn or exchanged.</p><input id=nameIn maxlength=20 placeholder="e.g. niklas"> <button id=nameGo class=btn>Start</button></section></div>
 <main id=app class=hidden>
 <section class=wide id=openHack></section><section><h2>Wallet</h2><div class=kv><span>Hot</span><b id=hot></b><span>Freezing</span><b id=freezing></b><span>Frozen</span><b id=frozen></b><span>Band</span><b id=band></b><span>Points</span><b id=pts></b><span>Firewall</span><b id=fwInfo></b><span>Exploit kits</span><b id=kitInfo></b></div>
 <p class=muted>Hot and freezing sats can be stolen. Frozen sats are safe and withdraw-only (withdrawals are off in the beta).</p></section>
@@ -16,7 +16,7 @@
 <section><h2>Weekly race</h2><p>Pool <b id=pool></b> test sats · week of <span id=week></span> · 50/20/10/10/10</p><p class=muted>All 5 puzzles in order, 40 s each, one attempt per week, free entry. Ranked by stages, time, wrong.</p>
 <button id=raceGo class=btn>Enter race</button><p id=raceMine></p><div class=tscroll><table><tbody id=standings></tbody></table></div></section>
 <section><h2>Practice (no sats)</h2><nav id=pg class=tabs></nav><label class=muted><input type=checkbox id=snd checked> Sound</label></section>
-<section class=wide><p class=muted>Device <span id=dev></span> · <a href=# id=rename>rename</a> · API <span id=apiUrl></span></p></section>
+<section class=wide><h2>Account</h2><p class=muted>Device <span id=dev></span> · <a href=# id=rename>rename</a> · API <span id=apiUrl></span></p><p class=muted><a href="https://drudley.github.io/btc-game-web/privacy/" target=_blank>Privacy policy</a> · <a href="https://drudley.github.io/btc-game-web/delete-account/" target=_blank>Account deletion info</a></p><button id=delAcc class="btn ghost">Delete account</button><p class=muted>Permanently deletes your name, hacks and race entries and forfeits all test sats and points. This can't be undone.</p></section>
 </main>
 <div id=modal><div class=box><button id=closeM class="btn ghost">✕ Close</button><div id=stage></div></div></div>
 <div id=adbox><div><div id=adTxt>📺 Mock ad playing…</div><div class=adbar><i id=adBar></i></div></div></div><div id=toast></div>

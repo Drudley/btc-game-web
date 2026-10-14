@@ -1,4 +1,4 @@
-import { call, remoteEngine, device, API } from './api.js';
+import { call, remoteEngine, device, API, onMe } from './api.js';
 import { META, runAttempt, h, SOUND } from './games.js';
 import { practice } from './practice.js';
 const $ = id => document.getElementById(id), BASE = 40, PER = 5;
@@ -21,8 +21,8 @@ const hackLock = fn => async (...a) => { if (starting || running || $('modal').c
 const MODE_T = { hack: 'PvP hack', sathack: 'Sat hack', race: 'Weekly race' };
 function startServer(body, ctx) { return call('/v1/attempts', body).then(s => { if (s.resumed) { toast('You already have an open hack: resuming it'); ctx = { mode: s.mode, title: MODE_T[s.mode] + ' (resumed)' }; } play(s, remoteEngine(s.attemptId), ctx); return s; }); }
 
-async function refresh() {
-  me = await call('/v1/me');
+async function refresh() { render(await call('/v1/me')); }
+function render(m) { if (!m || m.hot == null) return; me = m;
   $('uname').textContent = me.name; $('ptsTop').textContent = me.pts + ' pts'; $('hot').textContent = me.hot + ' sats'; $('freezing').textContent = me.freezing + ' sats'; $('frozen').textContent = me.frozen + ' sats';
   $('band').textContent = me.band; $('pts').textContent = me.pts; $('fwInfo').textContent = me.firewall ? `L${me.firewall} · ${fmtDur(me.firewallUntil - Date.now())} left` : 'L0 (none)';
   $('kitInfo').textContent = [1, 2, 3, 4, 5].filter(l => me.kits[l]).map(l => `L${l}×${me.kits[l]}`).join(' · ') || 'none';
@@ -33,7 +33,13 @@ async function refresh() {
 function drawOpen() { const el = $('openHack'); el.innerHTML = ''; if (!me.open || running) return;
   el.append(h('p', {}, `You have an open ${MODE_T[me.open.mode] || 'hack'} (${me.open.left}s left). `, h('button', { class: 'btn hk', onclick: hackLock(() => startServer({ mode: me.open.mode }, {})) }, 'Resume it'))); }
 function drawFreezes() { const el = $('freezes'); el.innerHTML = ''; for (const f of me.freezes) el.append(h('div', { class: 'fz' }, h('span', {}, `${f.amount} sats · L${f.level} (${f.hours} h)`), h('b', {}, 'frozen in ' + fmtDur(f.until - Date.now())))); }
-setInterval(() => me && drawFreezes(), 1000);
+let fzDue = false; setInterval(() => { if (!me) return; drawFreezes(); if (!fzDue && me.freezes.some(f => f.until <= Date.now())) { fzDue = true; refresh().catch(() => {}).finally(() => { fzDue = false; }); } }, 1000); // freeze completion
+// Defender side (being robbed), race payouts, daily resets: poll while open, and refresh on focus / app resume.
+const quiet = () => !me || running || starting || document.hidden;
+setInterval(() => { if (!quiet()) refreshAll(); }, 15000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && me && !running) refreshAll(); });
+window.addEventListener('focus', () => { if (me && !running) refreshAll(); });
+window.addEventListener('pageshow', () => { if (me && !running) refreshAll(); });
 function drawLevels() { const el = $('levels'); el.innerHTML = '';
   for (let l = 1; l <= 5; l++) { const sec = hackSec(l, curKit()), lk = sec < MIN();
     el.append(h('button', { class: (l === lvl ? 'on' : '') + (lk ? ' locked' : ''), onclick: () => { lvl = l; localStorage.setItem('lvl', l); drawLevels(); } }, `L${l}`, h('small', {}, lk ? lockTxt(l) : `${l} sat${l > 1 ? 's' : ''} · ${sec}s`))); }
@@ -57,7 +63,7 @@ function showResult(res, ctx) { running = null; busyUI(); const st = $('stage');
     ...lines.map(t => h('p', { class: 'res-line' }, t)), h('button', { class: 'btn', onclick: closeModal }, 'Done')));
   refreshAll();
 }
-function play(start, engine, ctx) { $('stage').innerHTML = ''; openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
+function play(start, engine, ctx) { $('stage').innerHTML = ''; $('openHack').innerHTML = ''; openModal(); running = { paid: ctx.mode === 'hack', ctl: runAttempt($('stage'), start, engine, res => showResult(res, ctx), ctx.title) }; }
 
 $('shGo').onclick = hackLock(async () => { const L = lvl; await startServer({ mode: 'sathack', level: L, kit: curKit(), puzzle: FP }, { mode: 'sathack', title: `Sat hack · L${L}` }); refresh().catch(() => {}); });
 async function loadTargets() { const t = await call('/v1/targets'), tb = $('targets'); tb.innerHTML = '';
@@ -98,6 +104,7 @@ const pg = $('pg'); for (const [id, G] of Object.entries(META)) pg.append(h('but
 $('snd').onchange = e => SOUND.on = e.target.checked;
 $('rename').onclick = e => { e.preventDefault(); const n = prompt('New name', me?.name || ''); if (n) call('/v1/profile', { name: n }).then(refresh, err => toast(err.message)); };
 
+onMe(render); // server pushes the fresh wallet with every mutating response
 async function boot() {
   if (!localStorage.getItem('named')) { $('signin').classList.remove('hidden');
     $('nameGo').onclick = safe(async () => { await call('/v1/profile', { name: $('nameIn').value }); localStorage.setItem('named', '1'); $('signin').classList.add('hidden'); boot(); }); return; }

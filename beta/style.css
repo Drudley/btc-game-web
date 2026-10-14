@@ -77,3 +77,6 @@ input,select{max-width:100%}
 @media(max-width:520px){.keypad{grid-template-columns:repeat(5,minmax(0,1fr))}.board.b7{gap:2px}.lgate{left:2px;right:2px}}
 
 .cd{text-align:center;padding:40px 0}.cd-num{font:700 96px/1 var(--sans);color:var(--primary);font-variant-numeric:tabular-nums;animation:pulse 1s infinite}
+.coll>h2{cursor:pointer;user-select:none;display:flex;align-items:center;margin:0;-webkit-tap-highlight-color:transparent}.coll>h2::after{content:"▸";margin-left:auto;padding-left:8px;color:var(--primary);font-family:var(--mono);transition:transform .25s}.coll:not(.closed)>h2::after{transform:rotate(90deg)}
+.cbody{height:0;overflow:hidden;transition:height .3s ease}.coll:not(.closed) .cbody{min-width:0}.cinner{padding-top:10px;min-width:0}.coll.closed .cbody{height:0}
+@media (prefers-reduced-motion:reduce){.cbody,.coll>h2::after{transition:none}}

@@ -41,7 +41,7 @@ function render(m) { if (!m || m.vsats == null) return; me = m;
   $('kitInfo').textContent = [1, 2, 3, 4, 5].filter(l => me.kits[l]).map(l => `L${l}×${me.kits[l]}`).join(' · ') || 'none';
   $('shLeft').textContent = me.satHacksLeft + '/' + (me.satHacksPerDay ?? 10); $('adsLeft').textContent = me.adsLeft; $('adCr').textContent = me.adCredits;
   $('adGo').disabled = me.adsLeft <= 0;
-  $('shGo').disabled = me.satHacksLeft <= 0 || me.offline; $('adGo').disabled ||= !!me.offline && me.credits >= (me.reconnectCredits ?? 1000); $('raceGo').disabled = !!me.offline || $('raceGo').disabled; for (const b of ['shGo', 'adGo', 'raceGo']) $(b).classList.add('hk'); drawKits(); drawLevels(); drawOpen(); if (me.offline) for (const b of ['shGo', 'raceGo', ...(me.credits >= (me.reconnectCredits ?? 1000) ? ['adGo'] : [])]) $(b).disabled = true; $('dev').textContent = device(); $('apiUrl').textContent = API;
+  $('shGo').disabled = me.satHacksLeft <= 0 || me.offline; $('adGo').disabled ||= !!me.offline && me.credits >= (me.reconnectCredits ?? 1000); $('raceGo').disabled = !!me.offline || $('raceGo').disabled; for (const b of ['shGo', 'adGo', 'raceGo']) $(b).classList.add('hk'); drawKits(); drawLevels(); drawOpen(); if (me.offline) for (const b of ['shGo', 'raceGo', ...(me.credits >= (me.reconnectCredits ?? 1000) ? ['adGo'] : [])]) $(b).disabled = true; $('rename').hidden = !!me.renamed; $('renameDone').hidden = !me.renamed;
 }
 function drawOpen() { const el = $('openHack'); el.innerHTML = ''; if (!me.open || running) return;
   el.append(h('p', {}, `You have an open ${MODE_T[me.open.mode] || 'hack'} (${me.open.left}s left). `, h('button', { class: 'btn hk', onclick: hackLock(() => startServer({ mode: me.open.mode }, {})) }, 'Resume it'))); }
@@ -138,7 +138,7 @@ $('raceGo').onclick = hackLock(async () => { if (!confirm('One run per day: 5 pu
 
 const pg = $('pg'); for (const [id, G] of Object.entries(META)) pg.append(h('button', { class: 'tab hk', onclick: hackLock(async () => { const p = practice(id, BASE); await countdown('Practice · ' + G.name).wait(); play(p.start, p.engine, { mode: 'practice', title: 'Practice · ' + G.name }); }) }, h('span', {}, G.no), G.name));
 $('snd').onchange = e => SOUND.on = e.target.checked;
-$('rename').onclick = e => { e.preventDefault(); const n = prompt('New name', me?.name || ''); if (n) call('/v1/profile', { name: n }).then(refresh, err => toast(err.message)); };
+$('rename').onclick = e => { e.preventDefault(); if (me?.renamed) return toast('You have already used your one rename'); const n = prompt('New name (2-20 letters/digits). You can only rename ONCE.', me?.name || ''); if (!n) return; if (!confirm(`Rename to "${n.trim()}"? This is one-time and cannot be changed again.`)) return; call('/v1/profile', { name: n }).then(refresh, err => toast(err.message)); };
 
 onMe(render); // server pushes the fresh wallet with every mutating response
 $('delAcc').onclick = safe(async () => {

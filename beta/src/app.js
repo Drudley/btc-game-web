@@ -41,7 +41,7 @@ function render(m) { if (!m || m.vsats == null) return; me = m;
   $('kitInfo').textContent = [1, 2, 3, 4, 5].filter(l => me.kits[l]).map(l => `L${l}×${me.kits[l]}`).join(' · ') || 'none';
   $('shLeft').textContent = me.satHacksLeft + '/' + (me.satHacksPerDay ?? 10); $('adsLeft').textContent = me.adsLeft; $('adCr').textContent = me.adCredits;
   $('adGo').disabled = me.adsLeft <= 0;
-  $('shGo').disabled = me.satHacksLeft <= 0 || me.offline; $('adGo').disabled ||= !!me.offline; $('raceGo').disabled = !!me.offline || $('raceGo').disabled; for (const b of ['shGo', 'adGo', 'raceGo']) $(b).classList.add('hk'); drawKits(); drawLevels(); drawOpen(); if (me.offline) for (const b of ['shGo', 'adGo', 'raceGo']) $(b).disabled = true; $('dev').textContent = device(); $('apiUrl').textContent = API;
+  $('shGo').disabled = me.satHacksLeft <= 0 || me.offline; $('adGo').disabled ||= !!me.offline && me.credits >= (me.reconnectCredits ?? 1000); $('raceGo').disabled = !!me.offline || $('raceGo').disabled; for (const b of ['shGo', 'adGo', 'raceGo']) $(b).classList.add('hk'); drawKits(); drawLevels(); drawOpen(); if (me.offline) for (const b of ['shGo', 'raceGo', ...(me.credits >= (me.reconnectCredits ?? 1000) ? ['adGo'] : [])]) $(b).disabled = true; $('dev').textContent = device(); $('apiUrl').textContent = API;
 }
 function drawOpen() { const el = $('openHack'); el.innerHTML = ''; if (!me.open || running) return;
   el.append(h('p', {}, `You have an open ${MODE_T[me.open.mode] || 'hack'} (${me.open.left}s left). `, h('button', { class: 'btn hk', onclick: hackLock(() => startServer({ mode: me.open.mode }, {})) }, 'Resume it'))); }
@@ -87,12 +87,20 @@ async function loadTargets() { const t = await call('/v1/targets'), tb = $('targ
       pvpLocked || tooShort ? 'Locked' : blocked ? 'Blocked ' + fmtDur(x.blockedUntil - Date.now()) : cd ? 'Cooldown' : 'Hack'), { disabled: pvpLocked || tooShort || blocked || !!cd }));
     if (x.scannable) act.append(h('button', { class: 'btn ghost', onclick: safe(async () => { const r = await call('/v1/scan', { target: x.id }); toast(`Scanned · used an L${r.used} spyware charge`); if (r.vsats != null) render(r); await loadTargets(); }) }, 'Scan'));
     tb.append(h('tr', {}, h('td', {}, x.name ?? Q, ...badges), h('td', {}, x.stealable == null ? Q : x.stealable + ' vsats'), h('td', {}, fwKnown ? 'L' + x.firewall + (x.firewall ? ` (${x.firewallCharges}/3)` : '') : Q), h('td', {}, !fwKnown ? Q : tooShort ? lockTxt(x.firewall) : sec + 's'), act)); } }
+function cordModal(cost) { return new Promise(res => { const n = me.credits, short = n < cost;
+  const close = v => { ov.remove(); res(v); };
+  const ov = h('div', { class: 'cmodal', role: 'dialog', 'aria-modal': 'true' }, h('div', { class: 'cbox' }, h('h3', {}, 'Cut the cord?'),
+    h('ul', {}, h('li', {}, "You're hidden from PvP and can't be attacked."), h('li', {}, "You can't do free hacks, PvP or the daily race until you reconnect. Your vsats stay."),
+      h('li', {}, `Reconnecting costs ${cost.toLocaleString()} store credits. You have ${n.toLocaleString()}.`), h('li', {}, `While offline you can still watch ads, but only until you have ${cost.toLocaleString()} credits (normal daily ad limit).`)),
+    short ? h('p', { class: 'warn' }, `You need ${(cost - n).toLocaleString()} more credits to reconnect.`) : null,
+    h('div', { class: 'row' }, h('button', { class: 'btn ghost', onclick: () => close(false) }, 'Cancel'), h('button', { class: 'btn', onclick: () => close(true) }, 'Cut the cord'))));
+  ov.addEventListener('click', e => { if (e.target === ov) close(false); }); document.body.append(ov); }); }
 function drawCord() { const el = $('cord'); if (!el || !me) return; el.innerHTML = ''; const cost = me.reconnectCredits ?? 1000;
-  if (!me.offline) { el.append(h('b', {}, 'Cut the cord'), h('p', { class: 'muted' }, `Taking a longer break? Go offline: you're hidden from PvP and can't be attacked. While offline you can't do free hacks, PvP, the race or ads; your vsats stay. Reconnecting costs ${cost.toLocaleString()} store credits.`),
-      h('button', { class: 'btn ghost', onclick: safe(async () => { if (!confirm(`Cut the cord?\n\nYou'll be hidden from PvP and can't be attacked. You can't play free hacks, PvP, the race or ads until you reconnect. Your vsats stay.\n\nReconnecting costs ${cost.toLocaleString()} store credits (you have ${me.credits.toLocaleString()}).` + (me.credits < cost ? `\n\nWarning: you don't have enough credits to reconnect, and ads are off while offline, so you couldn't come back.` : ''))) return;
+  if (!me.offline) { el.append(h('b', {}, 'Cut the cord'), h('p', { class: 'muted' }, `Taking a longer break? Go offline: you're hidden from PvP and can't be attacked. While offline you can't do free hacks, PvP or the race (ads only until you have enough credits to reconnect); your vsats stay. Reconnecting costs ${cost.toLocaleString()} store credits.`),
+      h('button', { class: 'btn ghost', onclick: safe(async () => { if (!(await cordModal(cost))) return;
         const r = await call('/v1/cord/cut', {}); render(r.me || r); toast('Offline. Enjoy the break.'); refreshLists(); }) }, 'Cut the cord')); return; }
   const need = Math.max(0, cost - me.credits);
-  el.append(h('b', {}, 'Offline (cord cut)'), h('p', { class: 'muted' }, `Since ${new Date(me.offlineSince).toLocaleString()}. You're hidden from PvP. Reconnecting costs ${cost.toLocaleString()} store credits.` + (need ? ` You need ${need.toLocaleString()} more (ads are off while offline).` : '')),
+  el.append(h('b', {}, 'Offline (cord cut)'), h('p', { class: 'muted' }, `Since ${new Date(me.offlineSince).toLocaleString()}. You're hidden from PvP. Reconnecting costs ${cost.toLocaleString()} store credits.` + (need ? ` You need ${need.toLocaleString()} more. Watch ads to earn them: offline, ads work until you have ${cost.toLocaleString()} credits.` : '')),
     Object.assign(h('button', { class: 'btn', onclick: safe(async () => { const r = await call('/v1/cord/reconnect', {}); render(r.me || r); toast(`Back online · −${cost.toLocaleString()} credits`); refreshLists(); }) }, `Reconnect · ${cost.toLocaleString()} credits`), { disabled: need > 0 })); }
 $('tgRefresh').onclick = safe(loadTargets);
 

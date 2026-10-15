@@ -10,3 +10,4 @@
 .item .row{flex-wrap:wrap;margin-top:6px}.item .row .btn{margin:0;font-size:12px;padding:6px 8px}
 body.hacking .hk{pointer-events:none;opacity:.45}#openHack:empty{display:none}#openHack{border-color:var(--primary)}
 body.hacking .hk{pointer-events:none;opacity:.45}#openHack:empty{display:none}#openHack{border-color:var(--primary)}
+.tbot{display:inline-block;border:1px solid var(--line);border-radius:6px;padding:0 4px;white-space:nowrap}.tbot.hot{color:#ffb347;border-color:#ffb347}#targets td{vertical-align:middle}#targets td .btn+.btn{margin-left:4px;margin-top:4px}#cord{margin:10px 0}

@@ -80,3 +80,6 @@ input,select{max-width:100%}
 .coll>h2{cursor:pointer;user-select:none;display:flex;align-items:center;margin:0;-webkit-tap-highlight-color:transparent}.coll>h2::after{content:"▸";margin-left:auto;padding-left:8px;color:var(--primary);font-family:var(--mono);transition:transform .25s}.coll:not(.closed)>h2::after{transform:rotate(90deg)}
 .cbody{height:0;overflow:hidden;transition:height .3s ease}.coll:not(.closed) .cbody{min-width:0}.cinner{padding-top:10px;min-width:0}.coll.closed .cbody{height:0}
 @media (prefers-reduced-motion:reduce){.cbody,.coll>h2::after{transition:none}}
+/* 0.4.7 safe-area: keep content clear of system bars when drawn edge-to-edge (Capacitor injects --safe-area-inset-*; browsers use env()) */
+body{box-sizing:border-box;padding-top:max(env(safe-area-inset-top,0px),var(--safe-area-inset-top,0px));padding-bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)));padding-left:max(env(safe-area-inset-left,0px),var(--safe-area-inset-left,0px));padding-right:max(env(safe-area-inset-right,0px),var(--safe-area-inset-right,0px))}
+#toast{bottom:calc(16px + max(env(safe-area-inset-bottom,0px),var(--safe-area-inset-bottom,0px)))}

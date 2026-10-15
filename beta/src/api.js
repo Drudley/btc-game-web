@@ -4,10 +4,10 @@ export const device = () => { let d = localStorage.getItem('device'); if (!d) { 
 // Every response that carries the fresh wallet (me) is pushed to the UI right away.
 let meHook = null; export const onMe = f => { meHook = f; };
 // 'busy' (409 from the per-player lock) means the server applied nothing, so it is always safe to retry; do it quietly a few times.
-export async function call(path, body) { for (let i = 0; ; i++) { try { return await call1(path, body); } catch (e) { if (e.status !== 409 || !/busy/.test(e.message) || i >= 3) throw e; await new Promise(r => setTimeout(r, 300 * (i + 1))); } } }
+export async function call(path, body) { for (let i = 0; ; i++) { try { return await call1(path, body); } catch (e) { if (e.status !== 409 || !/busy/.test(e.raw || e.message) || i >= 3) throw e; await new Promise(r => setTimeout(r, 300 * (i + 1))); } } }
 async function call1(path, body) {
   const r = await fetch(API + path, { method: body === undefined ? 'GET' : 'POST', headers: { authorization: 'Bearer dev:' + device(), 'content-type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
-  const j = await r.json().catch(() => ({ error: 'bad response (' + r.status + ')' })); if (!r.ok) throw Object.assign(new Error(j.error || r.status), { status: r.status }); if (j && j.me && meHook) { try { meHook(j.me); } catch {} } return j;
+  const j = await r.json().catch(() => ({ error: 'bad response (' + r.status + ')' })); if (!r.ok) { const raw = String(j.error || r.status); throw Object.assign(new Error(window.I18N ? window.I18N.srv(raw) : raw), { status: r.status, raw }); } /* 0.4.9: message translated, raw kept */ if (j && j.me && meHook) { try { meHook(j.me); } catch {} } return j;
 }
 // Network failures (no HTTP status) are retried with the same body; each input carries a counter n so the server replays instead of applying twice.
 export async function callRetry(path, body, tries = 4) { for (let i = 0; ; i++) { try { return await call(path, body); } catch (e) { if (e.status || i >= tries - 1) throw e; await new Promise(r => setTimeout(r, 400 * 2 ** i)); } } }

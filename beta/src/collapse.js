@@ -2,7 +2,7 @@
 // The name prompt stays open (it's an action the player must take). Content is wrapped, not re-rendered, so ids keep working.
 for (const sec of document.querySelectorAll('main section, body > section, section')) {
   const h = sec.querySelector(':scope > h2'); if (!h || sec.dataset.coll) continue; sec.dataset.coll = 1;
-  if (/hacker name/i.test(h.textContent)) continue;
+  if (sec.closest('#signin')) continue; // the name prompt stays open (any language)
   const body = document.createElement('div'); body.className = 'cbody'; const inner = document.createElement('div'); inner.className = 'cinner'; body.append(inner);
   while (h.nextSibling) inner.append(h.nextSibling); sec.append(body);
   sec.classList.add('coll', 'closed'); h.setAttribute('role', 'button'); h.tabIndex = 0; h.setAttribute('aria-expanded', 'false');
